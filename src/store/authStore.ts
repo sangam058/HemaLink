@@ -1,0 +1,293 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import type { User, UserRole, BloodGroup } from '../types';
+import { supabase } from '../lib/supabase';
+
+interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  registeredUsers: Record<string, any>; // Keeping for backward compatibility if any component uses it directly
+  login: (email: string, password: string, role: UserRole) => Promise<boolean>;
+  signup: (data: SignupData) => Promise<boolean>;
+  logout: () => Promise<void>;
+  updateProfile: (data: Partial<User>) => Promise<void>;
+  initialize: () => Promise<void>;
+}
+
+interface SignupData {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  role: UserRole;
+  bloodGroup?: BloodGroup;
+  location: {
+    address: string;
+    city: string;
+    state: string;
+    country: string;
+    lat?: number;
+    lng?: number;
+  };
+  hospitalName?: string;
+  licenseNumber?: string;
+}
+
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      isAuthenticated: false,
+      registeredUsers: {},
+
+      initialize: async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profile) {
+            const mappedUser = {
+              ...profile,
+              bloodGroup: profile.blood_group,
+              hospitalName: profile.hospital_name,
+              licenseNumber: profile.license_number,
+              isVerified: profile.is_verified,
+              createdAt: profile.created_at,
+              totalDonations: profile.total_donations,
+              lastDonationDate: profile.last_donation_date,
+              isAvailable: profile.is_available,
+              emergencyContact: profile.emergency_contact
+            };
+            set({ user: mappedUser as User, isAuthenticated: true });
+          }
+        }
+
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_IN' && session?.user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+
+            if (profile) {
+              const mappedUser = {
+                ...profile,
+                bloodGroup: profile.blood_group,
+                hospitalName: profile.hospital_name,
+                licenseNumber: profile.license_number,
+                isVerified: profile.is_verified,
+                createdAt: profile.created_at,
+                totalDonations: profile.total_donations,
+                lastDonationDate: profile.last_donation_date,
+                isAvailable: profile.is_available,
+                emergencyContact: profile.emergency_contact
+              };
+              set({ user: mappedUser as User, isAuthenticated: true });
+            }
+          } else if (event === 'SIGNED_OUT') {
+            set({ user: null, isAuthenticated: false });
+          }
+        });
+      },
+
+      login: async (email: string, password: string, role: UserRole) => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error || !data.user) {
+          console.error('Login error:', error);
+          // Fallback to local mock for demo if Supabase fails or not configured
+          const { registeredUsers } = get();
+          const user = registeredUsers[email];
+          if (user && user.role === role && user.password === password) {
+            const { password: _, ...userWithoutPassword } = user;
+            set({ user: userWithoutPassword, isAuthenticated: true });
+            return true;
+          }
+          return false;
+        }
+
+        // Fetch profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profile && profile.role === role) {
+          const mappedUser = {
+            ...profile,
+            bloodGroup: profile.blood_group,
+            hospitalName: profile.hospital_name,
+            licenseNumber: profile.license_number,
+            isVerified: profile.is_verified,
+            createdAt: profile.created_at,
+            totalDonations: profile.total_donations,
+            lastDonationDate: profile.last_donation_date,
+            isAvailable: profile.is_available,
+            emergencyContact: profile.emergency_contact
+          };
+          set({ user: mappedUser as User, isAuthenticated: true });
+          return true;
+        } else {
+          // Role mismatch
+          await supabase.auth.signOut();
+          return false;
+        }
+      },
+
+      signup: async (data: SignupData) => {
+        const { data: authData, error } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
+          options: {
+            data: {
+              name: data.name,
+              phone: data.phone,
+              role: data.role,
+              location: data.location,
+              bloodGroup: data.bloodGroup,
+              hospitalName: data.hospitalName,
+              licenseNumber: data.licenseNumber,
+            }
+          }
+        });
+
+        if (error) {
+          console.error('Signup error:', error);
+          // Fallback to local mock
+          const { registeredUsers } = get();
+          if (registeredUsers[data.email]) return false;
+
+          const newUser: any = {
+            id: `${data.role}-${Date.now()}`,
+            email: data.email,
+            password: data.password,
+            name: data.name,
+            phone: data.phone,
+            role: data.role,
+            location: data.location,
+            createdAt: new Date(),
+            isVerified: data.role !== 'hospital',
+          };
+
+          if (data.role === 'donor') {
+            newUser.bloodGroup = data.bloodGroup;
+            newUser.points = 0;
+            newUser.level = 1;
+            newUser.badges = [];
+            newUser.totalDonations = 0;
+            newUser.isAvailable = true;
+            newUser.donations = [];
+          } else if (data.role === 'requester') {
+            newUser.bloodGroup = data.bloodGroup;
+            newUser.requests = [];
+          } else if (data.role === 'hospital') {
+            newUser.hospitalName = data.hospitalName;
+            newUser.licenseNumber = data.licenseNumber;
+            newUser.status = 'pending_approval';
+            newUser.inventory = [];
+          }
+
+          const updatedUsers = { ...registeredUsers, [data.email]: newUser };
+          const { password: _, ...userWithoutPassword } = newUser;
+
+          set({
+            registeredUsers: updatedUsers,
+            user: userWithoutPassword,
+            isAuthenticated: true
+          });
+          return true;
+        }
+
+        // If trigger is not active, insert profile manually
+        if (authData.user) {
+          const { data: existingProfile } = await supabase.from('profiles').select('id').eq('id', authData.user.id).single();
+          if (!existingProfile) {
+            await supabase.from('profiles').insert({
+              id: authData.user.id,
+              email: data.email,
+              name: data.name,
+              phone: data.phone,
+              role: data.role,
+              blood_group: data.bloodGroup || null,
+              location: data.location,
+              hospital_name: data.hospitalName || null,
+              license_number: data.licenseNumber || null,
+              is_verified: data.role !== 'hospital'
+            });
+          }
+
+          // Re-fetch profile to set state
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+
+          if (profile) {
+            const mappedUser = {
+              ...profile,
+              bloodGroup: profile.blood_group,
+              hospitalName: profile.hospital_name,
+              licenseNumber: profile.license_number,
+              isVerified: profile.is_verified,
+              createdAt: profile.created_at,
+              totalDonations: profile.total_donations,
+              lastDonationDate: profile.last_donation_date,
+              isAvailable: profile.is_available,
+              emergencyContact: profile.emergency_contact
+            };
+            set({ user: mappedUser as User, isAuthenticated: true });
+          }
+        }
+
+        return true;
+      },
+
+      logout: async () => {
+        await supabase.auth.signOut();
+        set({ user: null, isAuthenticated: false });
+      },
+
+      updateProfile: async (data: any) => {
+        const { user } = get();
+        if (user) {
+          const updateData: any = { ...data };
+          // Map JS keys to DB columns
+          if (data.bloodGroup) updateData.blood_group = data.bloodGroup;
+          if (data.hospitalName) updateData.hospital_name = data.hospitalName;
+          if (data.licenseNumber) updateData.license_number = data.licenseNumber;
+
+          delete updateData.bloodGroup;
+          delete updateData.hospitalName;
+          delete updateData.licenseNumber;
+          delete updateData.isVerified;
+          delete updateData.createdAt;
+
+          await supabase.from('profiles').update(updateData).eq('id', user.id);
+
+          const updatedUser = { ...user, ...data };
+          set({ user: updatedUser });
+
+          // Fallback update
+          const { registeredUsers } = get();
+          if (registeredUsers[user.email]) {
+            const updatedRegisteredUser = { ...registeredUsers[user.email], ...data };
+            set({ registeredUsers: { ...registeredUsers, [user.email]: updatedRegisteredUser } });
+          }
+        }
+      },
+    }),
+    {
+      name: 'hemalink-auth',
+    }
+  )
+);
