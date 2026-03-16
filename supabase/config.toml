@@ -1,0 +1,8 @@
+{
+  "project_id": "hemalink-notifications",
+  "functions": {
+    "notification-hub": {
+      "verify_jwt": false
+    }
+  }
+}
