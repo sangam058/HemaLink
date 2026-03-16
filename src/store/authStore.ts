@@ -33,12 +33,26 @@ interface SignupData {
   licenseNumber?: string;
 }
 
+// Default admin user (always available)
+const defaultAdmin = {
+  id: 'admin-1',
+  email: 'sangam@gmail.com',
+  password: 'sangam362004',
+  name: 'Sangam Admin',
+  phone: '+91 9999999999',
+  role: 'admin' as UserRole,
+  location: { address: 'HQ', city: 'New Delhi', state: 'Delhi', country: 'India', lat: 28.6139, lng: 77.2090 },
+  permissions: ['all'],
+  createdAt: new Date(),
+  isVerified: true,
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
-      registeredUsers: {},
+      registeredUsers: { 'sangam@gmail.com': defaultAdmin },
 
       initialize: async () => {
         const { data: { session } } = await supabase.auth.getSession();
