@@ -59,7 +59,7 @@ export function LoginPage() {
     setEmail(creds.email);
     setPassword(creds.password);
     setIsLoading(true);
-    
+
     const success = await login(creds.email, creds.password, role);
     if (success) {
       navigate(`/${role}`);
@@ -94,11 +94,10 @@ export function LoginPage() {
               <button
                 key={r.id}
                 onClick={() => setRole(r.id)}
-                className={`p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center gap-1 ${
-                  role === r.id
+                className={`p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center gap-1 ${role === r.id
                     ? 'border-rose-500 bg-rose-50 text-rose-600'
                     : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                }`}
+                  }`}
               >
                 {r.icon}
                 <span className="text-xs font-medium">{r.label}</span>
@@ -163,7 +162,6 @@ export function LoginPage() {
           <p className="text-slate-300 font-medium mb-2">Getting Started:</p>
           <div className="text-slate-400 space-y-1">
             <p>• <strong>New users:</strong> Click "Sign up" to create an account</p>
-            <p>• <strong>Admin:</strong> sangam@gmail.com / sangam362004</p>
           </div>
           <p className="text-slate-500 mt-2">Register as Donor, Requester, or Hospital to get started!</p>
         </div>
