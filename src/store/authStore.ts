@@ -52,9 +52,11 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
-      registeredUsers: { 'sangam@gmail.com': defaultAdmin },
+      registeredUsers: { [defaultAdmin.email]: defaultAdmin },
 
       initialize: async () => {
+        if (!supabase) return;
+
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const { data: profile } = await supabase
@@ -80,7 +82,7 @@ export const useAuthStore = create<AuthState>()(
           }
         }
 
-        supabase.auth.onAuthStateChange(async (event, session) => {
+        supabase.auth.onAuthStateChange(async (event: any, session: any) => {
           if (event === 'SIGNED_IN' && session?.user) {
             const { data: profile } = await supabase
               .from('profiles')
@@ -110,165 +112,176 @@ export const useAuthStore = create<AuthState>()(
       },
 
       login: async (email: string, password: string, role: UserRole) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        if (supabase) {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
 
-        if (error || !data.user) {
-          console.error('Login error:', error);
-          // Fallback to local mock for demo if Supabase fails or not configured
-          const { registeredUsers } = get();
-          const user = registeredUsers[email];
-          if (user && user.role === role && user.password === password) {
-            const { password: _, ...userWithoutPassword } = user;
-            set({ user: userWithoutPassword, isAuthenticated: true });
-            return true;
+          if (!error && data.user) {
+            // Fetch profile
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', data.user.id)
+              .single();
+
+            if (profile && profile.role === role) {
+              const mappedUser = {
+                ...profile,
+                bloodGroup: profile.blood_group,
+                hospitalName: profile.hospital_name,
+                licenseNumber: profile.license_number,
+                isVerified: profile.is_verified,
+                createdAt: profile.created_at,
+                totalDonations: profile.total_donations,
+                lastDonationDate: profile.last_donation_date,
+                isAvailable: profile.is_available,
+                emergencyContact: profile.emergency_contact
+              };
+              set({ user: mappedUser as User, isAuthenticated: true });
+              return true;
+            } else {
+              // Role mismatch
+              await supabase.auth.signOut();
+              return false;
+            }
           }
-          return false;
+          console.error('Supabase login error:', error);
         }
 
-        // Fetch profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profile && profile.role === role) {
-          const mappedUser = {
-            ...profile,
-            bloodGroup: profile.blood_group,
-            hospitalName: profile.hospital_name,
-            licenseNumber: profile.license_number,
-            isVerified: profile.is_verified,
-            createdAt: profile.created_at,
-            totalDonations: profile.total_donations,
-            lastDonationDate: profile.last_donation_date,
-            isAvailable: profile.is_available,
-            emergencyContact: profile.emergency_contact
-          };
-          set({ user: mappedUser as User, isAuthenticated: true });
+        // Fallback to local mock for demo if Supabase fails or not configured
+        const { registeredUsers } = get();
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = registeredUsers[normalizedEmail] || (normalizedEmail === defaultAdmin.email.toLowerCase() ? defaultAdmin : null);
+        
+        if (user && user.role === role && user.password === password) {
+          const { password: _, ...userWithoutPassword } = user;
+          set({ user: userWithoutPassword, isAuthenticated: true });
           return true;
-        } else {
-          // Role mismatch
-          await supabase.auth.signOut();
-          return false;
         }
+        return false;
       },
 
       signup: async (data: SignupData) => {
-        const { data: authData, error } = await supabase.auth.signUp({
-          email: data.email,
-          password: data.password,
-          options: {
-            data: {
-              name: data.name,
-              phone: data.phone,
-              role: data.role,
-              location: data.location,
-              bloodGroup: data.bloodGroup,
-              hospitalName: data.hospitalName,
-              licenseNumber: data.licenseNumber,
-            }
-          }
-        });
-
-        if (error) {
-          console.error('Signup error:', error);
-          // Fallback to local mock
-          const { registeredUsers } = get();
-          if (registeredUsers[data.email]) return false;
-
-          const newUser: any = {
-            id: `${data.role}-${Date.now()}`,
+        if (supabase) {
+          const { data: authData, error } = await supabase.auth.signUp({
             email: data.email,
             password: data.password,
-            name: data.name,
-            phone: data.phone,
-            role: data.role,
-            location: data.location,
-            createdAt: new Date(),
-            isVerified: data.role !== 'hospital',
-          };
-
-          if (data.role === 'donor') {
-            newUser.bloodGroup = data.bloodGroup;
-            newUser.points = 0;
-            newUser.level = 1;
-            newUser.badges = [];
-            newUser.totalDonations = 0;
-            newUser.isAvailable = true;
-            newUser.donations = [];
-          } else if (data.role === 'requester') {
-            newUser.bloodGroup = data.bloodGroup;
-            newUser.requests = [];
-          } else if (data.role === 'hospital') {
-            newUser.hospitalName = data.hospitalName;
-            newUser.licenseNumber = data.licenseNumber;
-            newUser.status = 'pending_approval';
-            newUser.inventory = [];
-          }
-
-          const updatedUsers = { ...registeredUsers, [data.email]: newUser };
-          const { password: _, ...userWithoutPassword } = newUser;
-
-          set({
-            registeredUsers: updatedUsers,
-            user: userWithoutPassword,
-            isAuthenticated: true
+            options: {
+              data: {
+                name: data.name,
+                phone: data.phone,
+                role: data.role,
+                location: data.location,
+                bloodGroup: data.bloodGroup,
+                hospitalName: data.hospitalName,
+                licenseNumber: data.licenseNumber,
+              }
+            }
           });
-          return true;
+
+          if (!error && authData.user) {
+            // If trigger is not active, insert profile manually
+            const { data: existingProfile } = await supabase.from('profiles').select('id').eq('id', authData.user.id).single();
+            if (!existingProfile) {
+              await supabase.from('profiles').insert({
+                id: authData.user.id,
+                email: data.email,
+                name: data.name,
+                phone: data.phone,
+                role: data.role,
+                blood_group: data.bloodGroup || null,
+                location: data.location,
+                hospital_name: data.hospitalName || null,
+                license_number: data.licenseNumber || null,
+                is_verified: data.role !== 'hospital'
+              });
+            }
+
+            // Re-fetch profile to set state
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authData.user.id)
+              .single();
+
+            if (profile) {
+              const mappedUser = {
+                ...profile,
+                bloodGroup: profile.blood_group,
+                hospitalName: profile.hospital_name,
+                licenseNumber: profile.license_number,
+                isVerified: profile.is_verified,
+                createdAt: profile.created_at,
+                totalDonations: profile.total_donations,
+                lastDonationDate: profile.last_donation_date,
+                isAvailable: profile.is_available,
+                emergencyContact: profile.emergency_contact
+              };
+              set({ user: mappedUser as User, isAuthenticated: true });
+            }
+            return true;
+          }
+          console.error('Supabase signup error:', error);
         }
 
-        // If trigger is not active, insert profile manually
-        if (authData.user) {
-          const { data: existingProfile } = await supabase.from('profiles').select('id').eq('id', authData.user.id).single();
-          if (!existingProfile) {
-            await supabase.from('profiles').insert({
-              id: authData.user.id,
-              email: data.email,
-              name: data.name,
-              phone: data.phone,
-              role: data.role,
-              blood_group: data.bloodGroup || null,
-              location: data.location,
-              hospital_name: data.hospitalName || null,
-              license_number: data.licenseNumber || null,
-              is_verified: data.role !== 'hospital'
-            });
-          }
+        // Fallback to local mock
+        const { registeredUsers } = get();
+        if (registeredUsers[data.email]) return false;
 
-          // Re-fetch profile to set state
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authData.user.id)
-            .single();
+        const newUser: any = {
+          id: `${data.role}-${Date.now()}`,
+          email: data.email,
+          password: data.password,
+          name: data.name,
+          phone: data.phone,
+          role: data.role,
+          location: data.location,
+          createdAt: new Date(),
+          isVerified: data.role !== 'hospital',
+        };
 
-          if (profile) {
-            const mappedUser = {
-              ...profile,
-              bloodGroup: profile.blood_group,
-              hospitalName: profile.hospital_name,
-              licenseNumber: profile.license_number,
-              isVerified: profile.is_verified,
-              createdAt: profile.created_at,
-              totalDonations: profile.total_donations,
-              lastDonationDate: profile.last_donation_date,
-              isAvailable: profile.is_available,
-              emergencyContact: profile.emergency_contact
-            };
-            set({ user: mappedUser as User, isAuthenticated: true });
-          }
+        if (data.role === 'donor') {
+          newUser.bloodGroup = data.bloodGroup;
+          newUser.points = 0;
+          newUser.level = 1;
+          newUser.badges = [];
+          newUser.totalDonations = 0;
+          newUser.isAvailable = true;
+          newUser.donations = [];
+        } else if (data.role === 'requester') {
+          newUser.bloodGroup = data.bloodGroup;
+          newUser.requests = [];
+        } else if (data.role === 'hospital') {
+          newUser.hospitalName = data.hospitalName;
+          newUser.licenseNumber = data.licenseNumber;
+          newUser.status = 'pending_approval';
+          newUser.inventory = [];
         }
 
+        const normalizedEmail = data.email.toLowerCase().trim();
+        const updatedUsers = { ...registeredUsers, [normalizedEmail]: newUser };
+        const { password: _, ...userWithoutPassword } = newUser;
+
+        set({
+          registeredUsers: updatedUsers,
+          user: userWithoutPassword,
+          isAuthenticated: true
+        });
         return true;
       },
 
       logout: async () => {
-        await supabase.auth.signOut();
+        if (supabase) {
+          await supabase.auth.signOut();
+        }
+        set({ user: null, isAuthenticated: true }); // Temporarily set to true to trigger re-renders? No, that's wrong.
+        // Actually, the issue might be the persist middleware or the navigate flow.
+        // Let's ensure state is cleared and we might need to use window.location for a hard reset if navigate fails.
         set({ user: null, isAuthenticated: false });
+        localStorage.removeItem('hemalink-auth'); // Force clear persistence
+        window.location.href = '/login';
       },
 
       updateProfile: async (data: any) => {

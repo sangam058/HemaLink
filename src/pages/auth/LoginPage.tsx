@@ -52,21 +52,36 @@ export function LoginPage() {
 
   const handleDemoLogin = async () => {
     const creds = demoCredentials[role];
-    if (!creds.email) {
+    if (role !== 'admin' && !creds.email) {
       setError('Please sign up to create a new account for this role.');
       return;
     }
-    setEmail(creds.email);
-    setPassword(creds.password);
+    
+    // Use default admin credentials if role is admin and creds are empty in the record
+    const emailToUse = creds.email || (role === 'admin' ? 'sangam@gmail.com' : '');
+    const passwordToUse = creds.password || (role === 'admin' ? 'sangam362004' : '');
+
+    if (!emailToUse) {
+      setError('Please sign up to create a new account for this role.');
+      return;
+    }
+
+    setEmail(emailToUse);
+    setPassword(passwordToUse);
     setIsLoading(true);
 
-    const success = await login(creds.email, creds.password, role);
-    if (success) {
-      navigate(`/${role}`);
-    } else {
-      setError('Login failed. Please check your credentials.');
+    try {
+      const success = await login(emailToUse, passwordToUse, role);
+      if (success) {
+        navigate(`/${role}`);
+      } else {
+        setError('Login failed. Please check your credentials.');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (

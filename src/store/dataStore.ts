@@ -102,26 +102,68 @@ const mapCampaign = (dbCamp: any): Campaign => ({
   location: dbCamp.location,
   startDate: new Date(dbCamp.start_date),
   endDate: new Date(dbCamp.end_date),
-  targetBloodGroups: dbCamp.target_blood_groups,
+  targetBloodGroups: dbCamp.target_blood_groups || [],
   targetUnits: dbCamp.target_units,
-  collectedUnits: dbCamp.collected_units,
+  collectedUnits: dbCamp.collected_units || 0,
   attendees: dbCamp.attendees || [],
   status: dbCamp.status,
   createdAt: new Date(dbCamp.created_at),
 });
 
+// Mock Data for Demo Mode
+const mockRequests: BloodRequest[] = [
+  {
+    id: 'req-1',
+    requesterId: 'user-1',
+    requesterName: 'John Doe',
+    patientName: 'Jane Smith',
+    bloodGroup: 'A+',
+    units: 2,
+    hospitalId: 'hosp-1',
+    hospitalName: 'City General Hospital',
+    location: { address: '123 Main St', city: 'Mumbai', state: 'Maharashtra', country: 'India' },
+    dateNeeded: new Date(Date.now() + 86400000),
+    priority: 'urgent',
+    status: 'pending',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    timeline: [{ id: '1', status: 'pending', message: 'Request created', timestamp: new Date() }]
+  }
+];
+
+const mockCampaigns: Campaign[] = [
+  {
+    id: 'camp-1',
+    hospitalId: 'hosp-1',
+    hospitalName: 'City General Hospital',
+    name: 'Mega Blood Donation Drive',
+    description: 'Join us for our annual blood donation drive to save lives.',
+    location: { address: 'Hospital Grounds', city: 'Mumbai', state: 'Maharashtra', country: 'India' },
+    startDate: new Date(),
+    endDate: new Date(Date.now() + 172800000),
+    targetBloodGroups: ['A+', 'O+', 'B+'],
+    targetUnits: 100,
+    collectedUnits: 45,
+    attendees: [],
+    status: 'ongoing',
+    createdAt: new Date()
+  }
+];
+
 export const useDataStore = create<DataState>()(
   persist(
     (set, get) => ({
-      requests: [],
+      requests: mockRequests,
       donations: [],
-      campaigns: [],
+      campaigns: mockCampaigns,
       notifications: [],
       inventory: [],
       hospitals: [],
       donors: [],
 
       subscribeToRealtime: () => {
+        if (!supabase) return;
+        
         supabase
           .channel('public:blood_requests')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'blood_requests' }, () => {
@@ -152,6 +194,8 @@ export const useDataStore = create<DataState>()(
       },
 
       fetchInitialData: async () => {
+        if (!supabase) return;
+        
         try {
           const [reqRes, donRes, invRes, campRes] = await Promise.all([
             supabase.from('blood_requests').select('*').order('created_at', { ascending: false }),
@@ -170,30 +214,35 @@ export const useDataStore = create<DataState>()(
       },
 
       createRequest: async (requestData) => {
-        const dbPayload = {
-          requester_id: requestData.requesterId,
-          requester_name: requestData.requesterName,
-          patient_name: requestData.patientName,
-          blood_group: requestData.bloodGroup,
-          units: requestData.units,
-          hospital_id: requestData.hospitalId,
-          hospital_name: requestData.hospitalName,
-          location: requestData.location,
-          date_needed: requestData.dateNeeded.toISOString(),
-          reason: requestData.reason,
-          prescription: requestData.prescription,
-          priority: requestData.priority,
-          status: 'pending'
-        };
+        let newRequest: BloodRequest | null = null;
+        
+        if (supabase) {
+          const dbPayload = {
+            requester_id: requestData.requesterId,
+            requester_name: requestData.requesterName,
+            patient_name: requestData.patientName,
+            blood_group: requestData.bloodGroup,
+            units: requestData.units,
+            hospital_id: requestData.hospitalId,
+            hospital_name: requestData.hospitalName,
+            location: requestData.location,
+            date_needed: requestData.dateNeeded.toISOString(),
+            reason: requestData.reason,
+            prescription: requestData.prescription,
+            priority: requestData.priority,
+            status: 'pending'
+          };
 
-        const { data, error } = await supabase.from('blood_requests').insert(dbPayload).select().single();
+          const { data, error } = await supabase.from('blood_requests').insert(dbPayload).select().single();
+          if (data) {
+            newRequest = mapBloodRequest(data);
+          } else {
+            console.error('Supabase error:', error);
+          }
+        }
 
-        let newRequest: BloodRequest;
-        if (data) {
-          newRequest = mapBloodRequest(data);
-        } else {
+        if (!newRequest) {
           // Fallback to local
-          console.error('Supabase error:', error);
           newRequest = {
             ...requestData,
             id: `req-${Date.now()}`,
@@ -206,12 +255,14 @@ export const useDataStore = create<DataState>()(
           };
         }
 
-        set((state) => ({ requests: [newRequest, ...state.requests] }));
-        return newRequest;
+        set((state) => ({ requests: [newRequest!, ...state.requests] }));
+        return newRequest!;
       },
 
       updateRequestStatus: async (id, status, message) => {
-        await supabase.from('blood_requests').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+        if (supabase) {
+          await supabase.from('blood_requests').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+        }
 
         set((state) => ({
           requests: state.requests.map((req) =>
@@ -231,12 +282,14 @@ export const useDataStore = create<DataState>()(
       },
 
       assignDonor: async (requestId, donorId, donorName) => {
-        await supabase.from('blood_requests').update({
-          status: 'donor_assigned',
-          assigned_donor_id: donorId,
-          assigned_donor_name: donorName,
-          updated_at: new Date().toISOString()
-        }).eq('id', requestId);
+        if (supabase) {
+          await supabase.from('blood_requests').update({
+            status: 'donor_assigned',
+            assigned_donor_id: donorId,
+            assigned_donor_name: donorName,
+            updated_at: new Date().toISOString()
+          }).eq('id', requestId);
+        }
 
         set((state) => ({
           requests: state.requests.map((req) =>
@@ -290,11 +343,13 @@ export const useDataStore = create<DataState>()(
       },
 
       updateDonationStatus: async (id, status, points = 0) => {
-        const updatePayload: any = { status, points_earned: points };
-        if (status === 'completed') {
-          updatePayload.completed_date = new Date().toISOString();
+        if (supabase) {
+          const updatePayload: any = { status, points_earned: points };
+          if (status === 'completed') {
+            updatePayload.completed_date = new Date().toISOString();
+          }
+          await supabase.from('donations').update(updatePayload).eq('id', id);
         }
-        await supabase.from('donations').update(updatePayload).eq('id', id);
 
         set((state) => ({
           donations: state.donations.map((don) =>
@@ -345,8 +400,9 @@ export const useDataStore = create<DataState>()(
       },
 
       updateCampaign: async (id, data) => {
-        // Simple mapping, might need more specific column mapping in real app
-        await supabase.from('campaigns').update(data).eq('id', id);
+        if (supabase) {
+          await supabase.from('campaigns').update(data).eq('id', id);
+        }
 
         set((state) => ({
           campaigns: state.campaigns.map((camp) =>
@@ -356,10 +412,12 @@ export const useDataStore = create<DataState>()(
       },
 
       rsvpCampaign: async (campaignId, donorId) => {
-        const { data: camp } = await supabase.from('campaigns').select('attendees').eq('id', campaignId).single();
-        if (camp && !camp.attendees?.includes(donorId)) {
-          const newAttendees = [...(camp.attendees || []), donorId];
-          await supabase.from('campaigns').update({ attendees: newAttendees }).eq('id', campaignId);
+        if (supabase) {
+          const { data: camp } = await supabase.from('campaigns').select('attendees').eq('id', campaignId).single();
+          if (camp && !camp.attendees?.includes(donorId)) {
+            const newAttendees = [...(camp.attendees || []), donorId];
+            await supabase.from('campaigns').update({ attendees: newAttendees }).eq('id', campaignId);
+          }
         }
 
         set((state) => ({
@@ -398,17 +456,19 @@ export const useDataStore = create<DataState>()(
       },
 
       updateInventory: async (hospitalId, bloodGroup, units) => {
-        const { data: existing } = await supabase.from('blood_inventory').select('id').eq('hospital_id', hospitalId).eq('blood_group', bloodGroup).single();
+        if (supabase) {
+          const { data: existing } = await supabase.from('blood_inventory').select('id').eq('hospital_id', hospitalId).eq('blood_group', bloodGroup).single();
 
-        if (existing) {
-          await supabase.from('blood_inventory').update({ units, last_updated: new Date().toISOString() }).eq('id', existing.id);
-        } else {
-          await supabase.from('blood_inventory').insert({
-            hospital_id: hospitalId,
-            blood_group: bloodGroup,
-            units,
-            expiry_date: new Date(Date.now() + 42 * 24 * 60 * 60 * 1000).toISOString()
-          });
+          if (existing) {
+            await supabase.from('blood_inventory').update({ units, last_updated: new Date().toISOString() }).eq('id', existing.id);
+          } else {
+            await supabase.from('blood_inventory').insert({
+              hospital_id: hospitalId,
+              blood_group: bloodGroup,
+              units,
+              expiry_date: new Date(Date.now() + 42 * 24 * 60 * 60 * 1000).toISOString()
+            });
+          }
         }
 
         set((state) => {
@@ -442,7 +502,9 @@ export const useDataStore = create<DataState>()(
       },
 
       approveHospital: async (id) => {
-        await supabase.from('profiles').update({ hospital_status: 'active', is_verified: true }).eq('id', id);
+        if (supabase) {
+          await supabase.from('profiles').update({ hospital_status: 'active', is_verified: true }).eq('id', id);
+        }
 
         set((state) => ({
           hospitals: state.hospitals.map((h) =>
@@ -452,7 +514,9 @@ export const useDataStore = create<DataState>()(
       },
 
       rejectHospital: async (id) => {
-        await supabase.from('profiles').update({ hospital_status: 'rejected' }).eq('id', id);
+        if (supabase) {
+          await supabase.from('profiles').update({ hospital_status: 'rejected' }).eq('id', id);
+        }
 
         set((state) => ({
           hospitals: state.hospitals.map((h) =>

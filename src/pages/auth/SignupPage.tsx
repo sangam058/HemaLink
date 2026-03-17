@@ -215,7 +215,7 @@ export function SignupPage() {
                       label="Blood Group"
                       name="bloodGroup"
                       value={formData.bloodGroup}
-                      onChange={handleChange}
+                      onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value as BloodGroup })}
                       options={bloodGroups}
                     />
                   </>
