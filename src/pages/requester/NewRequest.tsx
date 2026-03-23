@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Droplets, MapPin, FileText, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useDataStore } from '../../store/dataStore';
-import type { BloodRequest, BloodGroup, Priority } from '../../types';
+import type { BloodGroup, Priority } from '../../types';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
