@@ -44,7 +44,7 @@ export function LoginPage() {
   };
 
   const fillAdminCreds = () => {
-    setEmail('sangam362004@gmail.com');
+    setEmail('sangam@gmail.com');
     setPassword('sangam362004');
     setRole('admin');
   };
@@ -137,7 +137,7 @@ export function LoginPage() {
           </p>
           <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
             <div className="text-xs text-slate-500">
-              <p>User: <span className="font-mono text-slate-800">sangam362004@gmail.com</span></p>
+              <p>User: <span className="font-mono text-slate-800">sangam@gmail.com</span></p>
               <p>Pass: <span className="font-mono text-slate-800">sangam362004</span></p>
             </div>
             <button 

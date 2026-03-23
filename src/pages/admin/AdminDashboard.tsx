@@ -9,24 +9,12 @@ import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 
 export function AdminDashboard() {
-  const { registeredUsers } = useAuthStore();
   const { requests, donations, hospitals, donors, campaigns } = useDataStore();
   const navigate = useNavigate();
 
-  // Get hospitals and donors from both stores
-  const registeredHospitals = Object.values(registeredUsers)
-    .filter((u: any) => u.role === 'hospital') as Hospital[];
-  const allHospitals = [...hospitals, ...registeredHospitals];
-  const uniqueHospitals = allHospitals.filter((h, index, self) => 
-    index === self.findIndex((t) => t.id === h.id)
-  );
-
-  const registeredDonors = Object.values(registeredUsers)
-    .filter((u: any) => u.role === 'donor') as Donor[];
-  const allDonors = [...donors, ...registeredDonors];
-  const uniqueDonors = allDonors.filter((d, index, self) => 
-    index === self.findIndex((t) => t.id === d.id)
-  );
+  // Get hospitals and donors from stores
+  const uniqueHospitals = hospitals;
+  const uniqueDonors = donors;
 
   const pendingHospitals = uniqueHospitals.filter((h) => h.status === 'pending_approval');
   const activeHospitals = uniqueHospitals.filter((h) => h.status === 'active');
