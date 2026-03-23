@@ -24,8 +24,6 @@ export function LoginPage() {
     { id: 'admin' as UserRole, label: 'Admin', icon: <Shield className="w-5 h-5" />, color: 'purple' },
   ];
 
-  // Demo credentials removed
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -36,7 +34,7 @@ export function LoginPage() {
       if (success) {
         navigate(`/${role}`);
       } else {
-        setError('Invalid credentials. Try the demo credentials below.');
+        setError('Invalid credentials. Please check your email and password.');
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -44,8 +42,6 @@ export function LoginPage() {
       setIsLoading(false);
     }
   };
-
-  // handleDemoLogin removed
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 py-12 px-4">
@@ -83,7 +79,7 @@ export function LoginPage() {
             ))}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             <Input
               label="Email"
               type="email"
@@ -91,6 +87,7 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               icon={<Mail className="w-5 h-5" />}
+              autoComplete="off"
               required
             />
             <Input
@@ -100,6 +97,7 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               icon={<Lock className="w-5 h-5" />}
+              autoComplete="new-password"
               required
             />
 
@@ -113,8 +111,6 @@ export function LoginPage() {
               Sign In
             </Button>
           </form>
-
-          {/* Admin Demo Login removed */}
 
           <div className="mt-6 text-center text-sm">
             <span className="text-slate-600">Don't have an account? </span>
