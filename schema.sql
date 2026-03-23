@@ -9,73 +9,76 @@ CREATE TYPE donation_status AS ENUM ('scheduled', 'awaiting_confirmation', 'comp
 CREATE TYPE hospital_status_enum AS ENUM ('pending_approval', 'active', 'suspended', 'rejected');
 CREATE TYPE priority_enum AS ENUM ('emergency', 'urgent', 'normal');
 
--- 2. Profiles Table (extends auth.users)
+-- 2. Profiles Table (base info for all users)
 CREATE TABLE profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
-  password_hash TEXT, -- Storing passwords in profiles if not using auth completely, but let's assume auth handles passwords
   name TEXT NOT NULL,
   phone TEXT NOT NULL,
   role user_role NOT NULL,
-  blood_group blood_group,
   location JSONB NOT NULL,
   avatar TEXT,
   is_verified BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  
-  -- Donor specific
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 2.1 Donors Table
+CREATE TABLE donors (
+  id UUID REFERENCES profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  blood_group blood_group NOT NULL,
   points INTEGER DEFAULT 0,
   level INTEGER DEFAULT 1,
   badges JSONB DEFAULT '[]'::JSONB,
   total_donations INTEGER DEFAULT 0,
   last_donation_date TIMESTAMP WITH TIME ZONE,
-  is_available BOOLEAN DEFAULT TRUE,
-  
-  -- Requester specific
-  emergency_contact TEXT,
+  is_available BOOLEAN DEFAULT TRUE
+);
 
-  -- Hospital specific
-  hospital_name TEXT,
-  license_number TEXT,
-  hospital_status hospital_status_enum,
-  verified_at TIMESTAMP WITH TIME ZONE,
-  
-  -- Admin specific
+-- 2.2 Requesters Table
+CREATE TABLE requesters (
+  id UUID REFERENCES profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  emergency_contact TEXT
+);
+
+-- 2.3 Hospitals Table
+CREATE TABLE hospitals (
+  id UUID REFERENCES profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  hospital_name TEXT NOT NULL,
+  license_number TEXT NOT NULL,
+  status hospital_status_enum DEFAULT 'pending_approval',
+  verified_at TIMESTAMP WITH TIME ZONE
+);
+
+-- 2.4 Admins Table
+CREATE TABLE admins (
+  id UUID REFERENCES profiles(id) ON DELETE CASCADE PRIMARY KEY,
   permissions JSONB DEFAULT '[]'::JSONB
 );
 
--- Enable RLS for profiles
+-- Enable RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE donors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE requesters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hospitals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Public profiles are viewable by everyone." ON profiles
-  FOR SELECT USING (true);
+-- 3. RLS Policies
+CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
+CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Users can update own profile." ON profiles
-  FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Donors can view their own data." ON donors FOR SELECT USING (true);
+CREATE POLICY "Donors can update their own data." ON donors FOR UPDATE USING (auth.uid() = id);
 
--- Trigger for automatically creating a profile for new users (if using Supabase Auth signup)
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.profiles (id, email, name, phone, role, location, blood_group, hospital_name, license_number)
-  VALUES (
-    new.id,
-    new.email,
-    new.raw_user_meta_data->>'name',
-    new.raw_user_meta_data->>'phone',
-    (new.raw_user_meta_data->>'role')::user_role,
-    (new.raw_user_meta_data->>'location')::jsonb,
-    (new.raw_user_meta_data->>'bloodGroup')::blood_group,
-    new.raw_user_meta_data->>'hospitalName',
-    new.raw_user_meta_data->>'licenseNumber'
-  );
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE POLICY "Requesters can view their own data." ON requesters FOR SELECT USING (true);
+CREATE POLICY "Requesters can update their own data." ON requesters FOR UPDATE USING (auth.uid() = id);
 
--- Note: In this project we'll just insert straight to profiles for simplicity, or use auth trigger.
+CREATE POLICY "Hospitals can view their own data." ON hospitals FOR SELECT USING (true);
+CREATE POLICY "Hospitals can update their own data." ON hospitals FOR UPDATE USING (auth.uid() = id);
 
--- 3. Blood Requests Table
+CREATE POLICY "Admins can view all data." ON admins FOR SELECT USING (true);
+CREATE POLICY "Admins can update their own data." ON admins FOR UPDATE USING (auth.uid() = id);
+
+-- 4. Blood Requests Table
 CREATE TABLE blood_requests (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   requester_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -97,19 +100,16 @@ CREATE TABLE blood_requests (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Enable RLS for blood_requests
 ALTER TABLE blood_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Requests are viewable by everyone." ON blood_requests FOR SELECT USING (true);
+CREATE POLICY "Requesters can create requests." ON blood_requests FOR INSERT WITH CHECK (auth.uid() = requester_id);
+CREATE POLICY "Updates for requests." ON blood_requests FOR UPDATE USING (
+  auth.uid() = requester_id OR 
+  auth.uid() = assigned_donor_id OR 
+  EXISTS(SELECT 1 FROM hospitals WHERE id = auth.uid() AND id = blood_requests.hospital_id)
+);
 
-CREATE POLICY "Requests are viewable by everyone." ON blood_requests
-  FOR SELECT USING (true);
-
-CREATE POLICY "Requesters can create requests." ON blood_requests
-  FOR INSERT WITH CHECK (auth.uid() = requester_id);
-
-CREATE POLICY "Requesters and assigned donors can update requests." ON blood_requests
-  FOR UPDATE USING (auth.uid() = requester_id OR auth.uid() = assigned_donor_id OR EXISTS(SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'hospital' AND id = blood_requests.hospital_id));
-
--- 4. Donations Table
+-- 5. Donations Table
 CREATE TABLE donations (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   donor_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -127,19 +127,11 @@ CREATE TABLE donations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Enable RLS for donations
 ALTER TABLE donations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Donations viewable by participant and hospital." ON donations FOR SELECT USING (auth.uid() = donor_id OR auth.uid() = hospital_id);
+CREATE POLICY "Donations manageable by donor or hospital." ON donations FOR ALL USING (auth.uid() = donor_id OR auth.uid() = hospital_id);
 
-CREATE POLICY "Donations viewable by participant and hospital." ON donations
-  FOR SELECT USING (auth.uid() = donor_id OR auth.uid() = hospital_id);
-
-CREATE POLICY "Donors can create donations." ON donations
-  FOR INSERT WITH CHECK (auth.uid() = donor_id);
-
-CREATE POLICY "Donors and hospitals can update donations." ON donations
-  FOR UPDATE USING (auth.uid() = donor_id OR auth.uid() = hospital_id);
-
--- 5. Blood Inventory Table
+-- 6. Blood Inventory Table
 CREATE TABLE blood_inventory (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   hospital_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -150,16 +142,11 @@ CREATE TABLE blood_inventory (
   UNIQUE(hospital_id, blood_group)
 );
 
--- Enable RLS for blood_inventory
 ALTER TABLE blood_inventory ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Inventory is viewable by everyone." ON blood_inventory FOR SELECT USING (true);
+CREATE POLICY "Hospitals can update their inventory." ON blood_inventory FOR ALL USING (auth.uid() = hospital_id);
 
-CREATE POLICY "Inventory is viewable by everyone." ON blood_inventory
-  FOR SELECT USING (true);
-
-CREATE POLICY "Hospitals can update their inventory." ON blood_inventory
-  FOR ALL USING (auth.uid() = hospital_id);
-
--- 6. Campaigns Table
+-- 7. Campaigns Table
 CREATE TABLE campaigns (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   hospital_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -177,19 +164,10 @@ CREATE TABLE campaigns (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Enable RLS for campaigns
 ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Campaigns are viewable by everyone." ON campaigns FOR SELECT USING (true);
+CREATE POLICY "Hospitals can create and update their campaigns." ON campaigns FOR ALL USING (auth.uid() = hospital_id);
 
-CREATE POLICY "Campaigns are viewable by everyone." ON campaigns
-  FOR SELECT USING (true);
-
-CREATE POLICY "Hospitals can create and update their campaigns." ON campaigns
-  FOR ALL USING (auth.uid() = hospital_id);
-
--- 7. Dummy Data for Sangam Admin
-INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data)
-VALUES ('00000000-0000-0000-0000-000000000000', 'sangam@gmail.com', crypt('sangam362004', gen_salt('bf')), now(), '{"name":"Sangam Admin","phone":"+91 9999999999","role":"admin","location":{"address":"HQ","city":"New Delhi","state":"Delhi","country":"India","lat":28.6139,"lng":77.2090}}'::jsonb)
-ON CONFLICT (id) DO NOTHING;
-
--- Optionally turn on realtime for these tables
-alter publication supabase_realtime add table profiles, blood_requests, donations, blood_inventory, campaigns;
+-- Admin Setup
+-- The trigger handle_new_user should be updated to handle these inserts.
+-- SEE triggers.sql

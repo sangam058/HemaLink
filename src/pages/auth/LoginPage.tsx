@@ -24,12 +24,7 @@ export function LoginPage() {
     { id: 'admin' as UserRole, label: 'Admin', icon: <Shield className="w-5 h-5" />, color: 'purple' },
   ];
 
-  const demoCredentials: Record<UserRole, { email: string; password: string }> = {
-    donor: { email: '', password: '' },
-    requester: { email: '', password: '' },
-    hospital: { email: '', password: '' },
-    admin: { email: 'sangam@gmail.com', password: 'sangam362004' },
-  };
+  // Demo credentials removed
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,39 +45,7 @@ export function LoginPage() {
     }
   };
 
-  const handleDemoLogin = async () => {
-    const creds = demoCredentials[role];
-    if (role !== 'admin' && !creds.email) {
-      setError('Please sign up to create a new account for this role.');
-      return;
-    }
-    
-    // Use default admin credentials if role is admin and creds are empty in the record
-    const emailToUse = creds.email || (role === 'admin' ? 'sangam@gmail.com' : '');
-    const passwordToUse = creds.password || (role === 'admin' ? 'sangam362004' : '');
-
-    if (!emailToUse) {
-      setError('Please sign up to create a new account for this role.');
-      return;
-    }
-
-    setEmail(emailToUse);
-    setPassword(passwordToUse);
-    setIsLoading(true);
-
-    try {
-      const success = await login(emailToUse, passwordToUse, role);
-      if (success) {
-        navigate(`/${role}`);
-      } else {
-        setError('Login failed. Please check your credentials.');
-      }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // handleDemoLogin removed
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 py-12 px-4">
@@ -151,19 +114,7 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {role === 'admin' && (
-            <div className="mt-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={handleDemoLogin}
-                isLoading={isLoading}
-              >
-                Login as Admin
-              </Button>
-            </div>
-          )}
+          {/* Admin Demo Login removed */}
 
           <div className="mt-6 text-center text-sm">
             <span className="text-slate-600">Don't have an account? </span>

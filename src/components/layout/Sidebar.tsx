@@ -49,7 +49,7 @@ export function Sidebar() {
       case 'hospital':
         return [
           { to: base, icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
-          { to: `${base}/requests`, icon: <Droplets className="w-5 h-5" />, label: 'Requests' },
+          { to: `${base}/requests`, icon: <Droplets className="w-5 h-5" />, label: 'Blood Requests' },
           { to: `${base}/donations`, icon: <Heart className="w-5 h-5" />, label: 'Donations' },
           { to: `${base}/inventory`, icon: <Package className="w-5 h-5" />, label: 'Inventory' },
           { to: `${base}/campaigns`, icon: <Calendar className="w-5 h-5" />, label: 'Campaigns' },
