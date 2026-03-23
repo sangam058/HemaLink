@@ -75,8 +75,8 @@ export function LoginPage() {
                 key={r.id}
                 onClick={() => setRole(r.id)}
                 className={`p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center gap-1 ${role === r.id
-                    ? 'border-rose-500 bg-rose-50 text-rose-600'
-                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                  ? 'border-rose-500 bg-rose-50 text-rose-600'
+                  : 'border-slate-200 text-slate-500 hover:border-slate-300'
                   }`}
               >
                 {r.icon}
@@ -140,7 +140,7 @@ export function LoginPage() {
               <p>User: <span className="font-mono text-slate-800">sangam@gmail.com</span></p>
               <p>Pass: <span className="font-mono text-slate-800">sangam362004</span></p>
             </div>
-            <button 
+            <button
               onClick={fillAdminCreds}
               className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-2 py-1 rounded"
             >

@@ -112,3 +112,33 @@ CREATE TRIGGER on_campaign_created
   FOR EACH ROW
   EXECUTE FUNCTION public.invoke_notification_hub();
 
+-- 6. Trigger for Donor Rewards when Donation is Completed
+CREATE OR REPLACE FUNCTION public.handle_donation_completed()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW.status = 'completed' AND (OLD.status IS NULL OR OLD.status != 'completed') THEN
+    UPDATE public.donors
+    SET 
+      points = points + COALESCE(NEW.points_earned, 50),
+      total_donations = total_donations + 1,
+      last_donation_date = COALESCE(NEW.completed_date, now())
+    WHERE id = NEW.donor_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_donation_completed ON public.donations;
+CREATE TRIGGER on_donation_completed
+  AFTER UPDATE ON public.donations
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_donation_completed();
+
+-- 7. Trigger for Request Updates (Match / Fulfill)
+DROP TRIGGER IF EXISTS on_request_status_updated ON public.blood_requests;
+CREATE TRIGGER on_request_status_updated
+  AFTER UPDATE OF status ON public.blood_requests
+  FOR EACH ROW
+  WHEN (NEW.status IN ('fulfilled', 'donor_assigned'))
+  EXECUTE FUNCTION public.invoke_notification_hub();
+

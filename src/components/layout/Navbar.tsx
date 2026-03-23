@@ -18,9 +18,8 @@ export function Navbar() {
   const userNotifications = notifications.filter((n) => n.userId === user?.id);
   const unreadCount = userNotifications.filter((n) => !n.isRead).length;
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    await logout();
   };
 
   const getDashboardLink = () => {

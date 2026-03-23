@@ -120,6 +120,41 @@ serve(async (req) => {
         </div>
       `;
       }
+      
+      // 6. REQUEST STATUS UPDATED - HOSPITAL FULFILL OR DONOR MATCH (Sent to Requester)
+      else if (payload.table === "blood_requests" && payload.type === "UPDATE") {
+        if (record.status === 'fulfilled' && old_record?.status !== 'fulfilled') {
+          subject = `✅ Your Blood Request has been Fulfilled!`;
+          htmlContent = `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 2px solid #10b981; border-radius: 8px;">
+              <h2 style="color: #10b981;">Blood Match Found!</h2>
+              <p>Hi ${record.requester_name},</p>
+              <p>Great news! Your request for <strong>${record.units} unit(s) of ${record.blood_group}</strong> has been matched with local hospital inventory.</p>
+              <div style="background-color: #f8fafc; padding: 15px; margin: 20px 0;">
+                <p><strong>Hospital:</strong> ${record.hospital_name || 'City General'}</p>
+                <p><strong>Location:</strong> ${record.location?.address || 'Mumbai'}, ${record.location?.city || 'Mumbai'}</p>
+              </div>
+              <p><strong>You got a match! Please come to the hospital immediately to collect it.</strong></p>
+              <p>Wishing the best for your patient,<br>The Hemalink Team</p>
+            </div>
+          `;
+        } 
+        else if (record.status === 'donor_assigned' && old_record?.status !== 'donor_assigned') {
+          subject = `🩸 A Donor has accepted your blood request!`;
+          htmlContent = `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 2px solid #e11d48; border-radius: 8px;">
+              <h2 style="color: #e11d48;">Donor Match Found!</h2>
+              <p>Hi ${record.requester_name},</p>
+              <p>A selfless donor (<strong>${record.assigned_donor_name}</strong>) has accepted your request for <strong>${record.units} unit(s) of ${record.blood_group}</strong>!</p>
+              <div style="background-color: #fff1f2; padding: 15px; margin: 20px 0;">
+                <p><strong>Meet at Hospital:</strong> ${record.hospital_name || record.location?.address || 'City General, Mumbai'}</p>
+              </div>
+              <p><strong>"Let's go to this hospital, I will donate to you."</strong><br>- Your Matching Donor</p>
+              <p>We're with you,<br>The Hemalink Team</p>
+            </div>
+          `;
+        }
+      }
 
       if (!subject || !htmlContent) {
         return new Response(JSON.stringify({ message: "No email condition met for this payload." }), { headers: { "Content-Type": "application/json" } });

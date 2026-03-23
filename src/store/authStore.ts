@@ -82,7 +82,7 @@ export const useAuthStore = create<AuthState>()(
         if (error || !profile) return null;
 
         const roleData = profile.donors?.[0] || profile.requesters?.[0] || profile.hospitals?.[0] || profile.admins?.[0] || {};
-        
+
         return {
           ...profile,
           ...roleData,
@@ -177,7 +177,7 @@ export const useAuthStore = create<AuthState>()(
         }
         set({ user: null, isAuthenticated: false });
         localStorage.removeItem('hemalink-auth');
-        window.location.href = '/login';
+        window.location.href = '/';
       },
 
       updateProfile: async (data: any) => {
