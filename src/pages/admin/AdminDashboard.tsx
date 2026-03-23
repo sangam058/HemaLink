@@ -1,8 +1,6 @@
 import { motion } from 'framer-motion';
 import { Users, Building2, Droplets, Calendar, TrendingUp, Award, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
 import { useDataStore } from '../../store/dataStore';
-import type { Hospital, Donor } from '../../types';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
