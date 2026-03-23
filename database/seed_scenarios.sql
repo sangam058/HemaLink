@@ -23,6 +23,11 @@ BEGIN
   -- ==========================================
   -- 0. CLEANUP PREVIOUS SEED DATA to prevent Duplicate Email errors
   -- ==========================================
+  -- Manually cascade delete to avoid foreign key constraint errors
+  DELETE FROM public.donations WHERE hospital_id IN (SELECT id FROM auth.users WHERE email LIKE '%@mumbai.in') OR donor_id IN (SELECT id FROM auth.users WHERE email LIKE '%@donor.in');
+  DELETE FROM public.blood_requests WHERE requester_id IN (SELECT id FROM auth.users WHERE email LIKE '%@requester.in');
+  DELETE FROM public.blood_inventory WHERE hospital_id IN (SELECT id FROM auth.users WHERE email LIKE '%@mumbai.in');
+  
   DELETE FROM auth.users WHERE email LIKE '%@mumbai.in' OR email LIKE '%@donor.in' OR email LIKE '%@requester.in';
 
   -- ==========================================
