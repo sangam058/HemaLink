@@ -1,6 +1,24 @@
 -- Supabase Database Schema for Hemalink
 -- Run this in the Supabase SQL Editor
 
+-- 0. Clean Up (Uncomment if you want a fresh start - WARNING: DELETES ALL DATA)
+DROP TABLE IF EXISTS public.campaigns CASCADE;
+DROP TABLE IF EXISTS public.blood_inventory CASCADE;
+DROP TABLE IF EXISTS public.donations CASCADE;
+DROP TABLE IF EXISTS public.blood_requests CASCADE;
+DROP TABLE IF EXISTS public.admins CASCADE;
+DROP TABLE IF EXISTS public.hospitals CASCADE;
+DROP TABLE IF EXISTS public.requesters CASCADE;
+DROP TABLE IF EXISTS public.donors CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
+DROP TYPE IF EXISTS public.user_role CASCADE;
+DROP TYPE IF EXISTS public.blood_group CASCADE;
+DROP TYPE IF EXISTS public.request_status CASCADE;
+DROP TYPE IF EXISTS public.donation_status CASCADE;
+DROP TYPE IF EXISTS public.hospital_status_enum CASCADE;
+DROP TYPE IF EXISTS public.priority_enum CASCADE;
+
 -- 1. Custom Types
 CREATE TYPE user_role AS ENUM ('requester', 'donor', 'hospital', 'admin');
 CREATE TYPE blood_group AS ENUM ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-');
@@ -28,7 +46,7 @@ CREATE TABLE donors (
   blood_group blood_group NOT NULL,
   points INTEGER DEFAULT 0,
   level INTEGER DEFAULT 1,
-  badges JSONB DEFAULT '[]'::JSONB,
+  badges JSONB DEFAULT '[]'::jsonb,
   total_donations INTEGER DEFAULT 0,
   last_donation_date TIMESTAMP WITH TIME ZONE,
   is_available BOOLEAN DEFAULT TRUE
@@ -52,30 +70,30 @@ CREATE TABLE hospitals (
 -- 2.4 Admins Table
 CREATE TABLE admins (
   id UUID REFERENCES profiles(id) ON DELETE CASCADE PRIMARY KEY,
-  permissions JSONB DEFAULT '[]'::JSONB
+  permissions JSONB DEFAULT '[]'::jsonb
 );
 
--- Enable RLS
+-- 3. Enable RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE donors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE requesters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hospitals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 
--- 3. RLS Policies
+-- RLS Policies
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
-CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can update their own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Donors can view their own data." ON donors FOR SELECT USING (true);
+CREATE POLICY "Donors are viewable by everyone." ON donors FOR SELECT USING (true);
 CREATE POLICY "Donors can update their own data." ON donors FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Requesters can view their own data." ON requesters FOR SELECT USING (true);
+CREATE POLICY "Requesters are viewable by everyone." ON requesters FOR SELECT USING (true);
 CREATE POLICY "Requesters can update their own data." ON requesters FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Hospitals can view their own data." ON hospitals FOR SELECT USING (true);
+CREATE POLICY "Hospitals are viewable by everyone." ON hospitals FOR SELECT USING (true);
 CREATE POLICY "Hospitals can update their own data." ON hospitals FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Admins can view all data." ON admins FOR SELECT USING (true);
+CREATE POLICY "Admins are viewable by everyone." ON admins FOR SELECT USING (true);
 CREATE POLICY "Admins can update their own data." ON admins FOR UPDATE USING (auth.uid() = id);
 
 -- 4. Blood Requests Table
@@ -138,25 +156,24 @@ CREATE TABLE blood_inventory (
   blood_group blood_group NOT NULL,
   units INTEGER NOT NULL,
   expiry_date TIMESTAMP WITH TIME ZONE NOT NULL,
-  last_updated TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  UNIQUE(hospital_id, blood_group)
+  last_updated TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 ALTER TABLE blood_inventory ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Inventory is viewable by everyone." ON blood_inventory FOR SELECT USING (true);
-CREATE POLICY "Hospitals can update their inventory." ON blood_inventory FOR ALL USING (auth.uid() = hospital_id);
+CREATE POLICY "Inventory viewable by everyone." ON blood_inventory FOR SELECT USING (true);
+CREATE POLICY "Hospitals manage their inventory." ON blood_inventory FOR ALL USING (auth.uid() = hospital_id);
 
 -- 7. Campaigns Table
 CREATE TABLE campaigns (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   hospital_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  hospital_name TEXT,
+  hospital_name TEXT NOT NULL,
   name TEXT NOT NULL,
-  description TEXT NOT NULL,
+  description TEXT,
   location JSONB NOT NULL,
   start_date TIMESTAMP WITH TIME ZONE NOT NULL,
   end_date TIMESTAMP WITH TIME ZONE NOT NULL,
-  target_blood_groups blood_group[] NOT NULL,
+  target_blood_groups blood_group[] DEFAULT '{}',
   target_units INTEGER NOT NULL,
   collected_units INTEGER DEFAULT 0,
   attendees UUID[] DEFAULT '{}',
@@ -166,8 +183,4 @@ CREATE TABLE campaigns (
 
 ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Campaigns are viewable by everyone." ON campaigns FOR SELECT USING (true);
-CREATE POLICY "Hospitals can create and update their campaigns." ON campaigns FOR ALL USING (auth.uid() = hospital_id);
-
--- Admin Setup
--- The trigger handle_new_user should be updated to handle these inserts.
--- SEE triggers.sql
+CREATE POLICY "Hospitals manage their campaigns." ON campaigns FOR ALL USING (auth.uid() = hospital_id);
