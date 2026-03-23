@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Building2, Heart, Shield } from 'lucide-react';
+import { Mail, Lock, User, Building2, Heart, Shield, Info } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -41,6 +41,12 @@ export function LoginPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fillAdminCreds = () => {
+    setEmail('sangam362004@gmail.com');
+    setPassword('sangam362004');
+    setRole('admin');
   };
 
   return (
@@ -120,12 +126,31 @@ export function LoginPage() {
           </div>
         </Card>
 
-        <div className="mt-6 p-4 bg-slate-800 rounded-xl text-sm">
-          <p className="text-slate-300 font-medium mb-2">Getting Started:</p>
-          <div className="text-slate-400 space-y-1">
-            <p>• <strong>New users:</strong> Click "Sign up" to create an account</p>
+        {/* Admin Helper Box */}
+        <div className="mt-6 p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <div className="flex items-center gap-2 text-slate-800 font-bold mb-2">
+            <Shield className="w-5 h-5 text-purple-600" />
+            <span>Admin Access</span>
           </div>
-          <p className="text-slate-500 mt-2">Register as Donor, Requester, or Hospital to get started!</p>
+          <p className="text-sm text-slate-600 mb-3">
+            To view the Admin Panel, use the credentials below.
+          </p>
+          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+            <div className="text-xs text-slate-500">
+              <p>User: <span className="font-mono text-slate-800">sangam362004@gmail.com</span></p>
+              <p>Pass: <span className="font-mono text-slate-800">sangam362004</span></p>
+            </div>
+            <button 
+              onClick={fillAdminCreds}
+              className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-2 py-1 rounded"
+            >
+              Fill Form
+            </button>
+          </div>
+          <div className="mt-3 flex items-start gap-2 text-xs text-slate-500 bg-blue-50/50 p-2 rounded">
+            <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <p>Ensure you run the "Admin SQL" script in your Supabase editor to activate this user.</p>
+          </div>
         </div>
       </motion.div>
     </div>
