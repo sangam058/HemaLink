@@ -21,6 +21,11 @@ DECLARE
 BEGIN
   
   -- ==========================================
+  -- 0. CLEANUP PREVIOUS SEED DATA to prevent Duplicate Email errors
+  -- ==========================================
+  DELETE FROM auth.users WHERE email LIKE '%@mumbai.in' OR email LIKE '%@donor.in' OR email LIKE '%@requester.in';
+
+  -- ==========================================
   -- 1. HOSPITALS (Password: password123)
   -- ==========================================
   INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at) VALUES 
