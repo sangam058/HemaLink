@@ -109,7 +109,6 @@ export function LoginPage() {
                   )}
                 </button>
               }
-              autoComplete="new-password"
               required
             />
 
@@ -129,13 +128,12 @@ export function LoginPage() {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-slate-600">Don't have an account? </span>
+            <span className="text-slate-600">New to HemaLink? </span>
             <Link to="/signup" className="text-rose-600 font-medium hover:underline">
-              Sign up
+              Create an account
             </Link>
           </div>
         </Card>
-
       </motion.div>
     </div>
   );

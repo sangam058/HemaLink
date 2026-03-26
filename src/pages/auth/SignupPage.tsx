@@ -61,7 +61,6 @@ export function SignupPage() {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      // Manual check for password match before store call
       return;
     }
 
@@ -86,7 +85,6 @@ export function SignupPage() {
       });
 
       if (success) {
-        // useAuthStore tracks user state
         const user = useAuthStore.getState().user;
         if (user) {
           navigate(`/${role}`);
@@ -106,19 +104,15 @@ export function SignupPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-lg"
       >
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-4">
-            <img src="/logo.png" alt="HemaLink" className="w-12 h-12" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-rose-600 to-red-600 bg-clip-text text-transparent">
-              HemaLink
-            </span>
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-800">Create Account</h1>
-          <p className="text-slate-600">Join our life-saving community</p>
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 mb-4 shadow-inner">
+            <Heart className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2 tracking-tight">Mission: Saving Lives</h2>
+          <p className="text-slate-500 font-medium text-sm">Join the HemaLink network of dedicated lifesavers.</p>
         </div>
 
         <Card>
-          {/* Progress Steps */}
           <div className="flex items-center justify-center gap-2 mb-6">
             {[1, 2, 3].map((s) => (
               <div
@@ -135,7 +129,6 @@ export function SignupPage() {
           </div>
 
           <form onSubmit={handleSubmit}>
-            {/* Step 1: Role Selection */}
             {step === 1 && (
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
@@ -149,6 +142,7 @@ export function SignupPage() {
                   {roles.map((r) => (
                     <button
                       key={r.id}
+                      type="button"
                       onClick={() => setRole(r.id)}
                       className={`p-4 rounded-2xl border-2 transition-all duration-300 text-center ${role === r.id
                         ? 'border-rose-500 bg-rose-50 text-rose-600 shadow-lg shadow-rose-200/50 scale-105'
@@ -166,7 +160,6 @@ export function SignupPage() {
               </motion.div>
             )}
 
-            {/* Step 2: Account Details */}
             {step === 2 && (
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
@@ -285,7 +278,7 @@ export function SignupPage() {
                 />
 
                 {error && (
-                  <div className={`p-3 mb-4 text-sm rounded-lg ${
+                  <div className={`p-3 text-sm rounded-lg ${
                     error.toLowerCase().includes('successful') 
                     ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
                     : 'bg-red-50 text-red-600 border border-red-100'
@@ -305,7 +298,6 @@ export function SignupPage() {
               </motion.div>
             )}
 
-            {/* Step 3: Location */}
             {step === 3 && (
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
