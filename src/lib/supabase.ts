@@ -8,4 +8,14 @@ if ((!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_K
   console.warn('⚠️ Supabase credentials missing. Check your Vercel Environment Variables.');
 }
 
+// SAFE DEBUGGING: Log if keys are present (just the first 5 chars for safety)
+if (import.meta.env.PROD) {
+  console.log('🔌 Supabase Connection Status:', {
+    urlFound: !!supabaseUrl,
+    keyFound: !!supabaseAnonKey,
+    urlPrefix: supabaseUrl?.substring(0, 15), // Safe to show origin
+    keyPrefix: supabaseAnonKey?.substring(0, 8)  // Safe for debugging 'eyJ'
+  });
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
