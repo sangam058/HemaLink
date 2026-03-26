@@ -84,9 +84,16 @@ export function SignupPage() {
       });
 
       if (success) {
-        navigate(`/${role}`);
+        // Check if user is actually logged in (useAuthStore handles setting user)
+        const user = useAuthStore.getState().user;
+        if (user) {
+          navigate(`/${role}`);
+        } else {
+          // Signup successful but session not established (likely email confirmation required)
+          setError('Registration successful! Please check your email to verify your account before logging in.');
+        }
       } else {
-        setError('Registration failed. Please try again.');
+        setError('Registration failed. Please check your details and try again.');
       }
     } catch (err) {
       setError('An error occurred. Please try again.');

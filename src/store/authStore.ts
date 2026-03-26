@@ -140,33 +140,56 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signup: async (data: SignupData) => {
-        if (supabase) {
-          const { data: authData, error } = await supabase.auth.signUp({
-            email: data.email,
-            password: data.password,
-            options: {
-              data: {
-                name: data.name,
-                phone: data.phone,
-                role: data.role,
-                location: data.location,
-                bloodGroup: data.bloodGroup,
-                hospitalName: data.hospitalName,
-                licenseNumber: data.licenseNumber,
-                emergencyContact: data.emergencyContact
-              }
-            }
-          });
+        if (!supabase) {
+          console.error('Supabase is not configured. Please check your .env.local file.');
+          return false;
+        }
 
-          if (!error && authData.user) {
-            // Re-fetch profile and role data (trigger should have handled inserts)
-            const mappedUser = await get().fetchProfile(authData.user.id);
-            if (mappedUser) {
-              set({ user: mappedUser, isAuthenticated: true });
+        const { data: authData, error } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
+          options: {
+            data: {
+              name: data.name,
+              phone: data.phone,
+              role: data.role,
+              location: data.location,
+              bloodGroup: data.bloodGroup,
+              hospitalName: data.hospitalName,
+              licenseNumber: data.licenseNumber,
+              emergencyContact: data.emergencyContact
             }
+          }
+        });
+
+        if (error) {
+          console.error('Supabase signup error:', error.message);
+          return false;
+        }
+
+        if (authData.user) {
+          // If email confirmation is required, the session might be null
+          // Check if we have a session
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (!session) {
+            console.log('Signup successful but email confirmation might be required.');
+            // For college presentation convenience, we assume success if user was created
             return true;
           }
-          console.error('Supabase signup error:', error);
+
+          // Retry fetching profile a few times in case the trigger is slow
+          let mappedUser = null;
+          for (let i = 0; i < 3; i++) {
+            mappedUser = await get().fetchProfile(authData.user.id);
+            if (mappedUser) break;
+            await new Promise(resolve => setTimeout(resolve, 1000)); // wait 1s
+          }
+
+          if (mappedUser) {
+            set({ user: mappedUser, isAuthenticated: true });
+          }
+          return true;
         }
         return false;
       },
