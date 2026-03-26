@@ -71,36 +71,53 @@ export const useAuthStore = create<AuthState>()(
       },
 
       fetchProfile: async (userId: string): Promise<User | null> => {
-        const roleQueryMap: Record<UserRole, string> = {
-          donor: 'donors(*)',
-          requester: 'requesters(*)',
-          hospital: 'hospitals(*)',
-          admin: 'admins(*)'
-        };
-
-        const { data, error } = await supabase
+        // 1. Get the base profile first to find the role
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select(`*, ${Object.values(roleQueryMap).join(', ')}`)
+          .select('*')
           .eq('id', userId)
           .single();
 
-        if (error || !data) return null;
+        if (profileError || !profile) return null;
 
-        const profile = data as any;
-        const roleData = profile.donors?.[0] || profile.requesters?.[0] || profile.hospitals?.[0] || profile.admins?.[0] || {};
+        // 2. Map role to specific table
+        const roleTableMap: Record<UserRole, string> = {
+          donor: 'donors',
+          requester: 'requesters',
+          hospital: 'hospitals',
+          admin: 'admins'
+        };
 
+        const tableName = roleTableMap[profile.role as UserRole];
+        let roleData = {};
+
+        // 3. Only fetch role data if we have a valid table name
+        if (tableName) {
+          const { data: roleSpecific, error: roleError } = await supabase
+            .from(tableName as any)
+            .select('*')
+            .eq('id', userId)
+            .single();
+          
+          if (!roleError && roleSpecific) {
+            roleData = roleSpecific;
+          }
+        }
+
+        // 4. Merge and return as User
+        const userData = profile as any;
         return {
-          ...profile,
+          ...userData,
           ...roleData,
-          bloodGroup: roleData.blood_group,
-          hospitalName: roleData.hospital_name,
-          licenseNumber: roleData.license_number,
-          isVerified: profile.is_verified,
-          createdAt: new Date(profile.created_at),
-          totalDonations: roleData.total_donations,
-          lastDonationDate: roleData.last_donation_date ? new Date(roleData.last_donation_date) : undefined,
-          isAvailable: roleData.is_available,
-          emergencyContact: roleData.emergency_contact
+          bloodGroup: (roleData as any).blood_group,
+          hospitalName: (roleData as any).hospital_name,
+          licenseNumber: (roleData as any).license_number,
+          isVerified: userData.is_verified,
+          createdAt: new Date(userData.created_at),
+          totalDonations: (roleData as any).total_donations,
+          lastDonationDate: (roleData as any).last_donation_date ? new Date((roleData as any).last_donation_date) : undefined,
+          isAvailable: (roleData as any).is_available,
+          emergencyContact: (roleData as any).emergency_contact
         } as User;
       },
 
