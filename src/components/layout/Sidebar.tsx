@@ -33,6 +33,7 @@ export function Sidebar() {
         return [
           { to: base, icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
           { to: `${base}/donate`, icon: <Heart className="w-5 h-5" />, label: 'Donate Blood' },
+          { to: `${base}/inventory`, icon: <Package className="w-5 h-5" />, label: 'Live Inventory' },
           { to: `${base}/requests`, icon: <Droplets className="w-5 h-5" />, label: 'Blood Requests' },
           { to: `${base}/donations`, icon: <History className="w-5 h-5" />, label: 'My Donations' },
           { to: `${base}/campaigns`, icon: <Calendar className="w-5 h-5" />, label: 'Campaigns' },
@@ -41,6 +42,7 @@ export function Sidebar() {
       case 'requester':
         return [
           { to: base, icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
+          { to: `${base}/inventory`, icon: <Package className="w-5 h-5" />, label: 'Live Inventory' },
           { to: `${base}/new-request`, icon: <Droplets className="w-5 h-5" />, label: 'New Request' },
           { to: `${base}/my-requests`, icon: <FileText className="w-5 h-5" />, label: 'My Requests' },
           { to: `${base}/messages`, icon: <MessageSquare className="w-5 h-5" />, label: 'Messages' },

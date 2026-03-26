@@ -10,8 +10,10 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 // Public Pages
 import { HomePage } from './pages/public/HomePage';
 import { AboutPage } from './pages/public/AboutPage';
+import { CampaignsPage } from './pages/public/CampaignsPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { SignupPage } from './pages/auth/SignupPage';
+import { LiveInventoryPage } from './pages/shared/LiveInventoryPage';
 
 // Donor Pages
 import { DonorDashboard } from './pages/donor/DonorDashboard';
@@ -59,6 +61,7 @@ function App() {
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<HomePage />} />
           <Route path="about" element={<AboutPage />} />
+          <Route path="campaigns" element={<CampaignsPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="signup" element={<SignupPage />} />
         </Route>
@@ -70,12 +73,14 @@ function App() {
           <Route path="donations" element={<DonorDonations />} />
           <Route path="rewards" element={<DonorRewards />} />
           <Route path="donate" element={<DonateBlood />} />
+          <Route path="inventory" element={<LiveInventoryPage />} />
           <Route path="campaigns" element={<DonorCampaigns />} />
         </Route>
 
         {/* Requester Routes */}
         <Route path="/requester" element={<DashboardLayout allowedRole="requester" />}>
           <Route index element={<RequesterDashboard />} />
+          <Route path="inventory" element={<LiveInventoryPage />} />
           <Route path="new-request" element={<NewRequest />} />
           <Route path="my-requests" element={<MyRequests />} />
         </Route>
