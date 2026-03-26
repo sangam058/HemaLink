@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  error: string | null;
   registeredUsers: Record<string, any>; // Keeping for backward compatibility if any component uses it directly
   login: (email: string, password: string, role: UserRole) => Promise<boolean>;
   signup: (data: SignupData) => Promise<boolean>;
@@ -13,6 +14,7 @@ interface AuthState {
   updateProfile: (data: Partial<User>) => Promise<void>;
   initialize: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<User | null>;
+  clearError: () => void;
 }
 
 interface SignupData {
@@ -40,7 +42,10 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
+      error: null,
       registeredUsers: {},
+
+      clearError: () => set({ error: null }),
 
       initialize: async () => {
         if (!supabase) return;
@@ -99,6 +104,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       login: async (email: string, password: string, role: UserRole) => {
+        set({ error: null });
+        
         if (email === 'sangam@gmail.com' && password === 'sangam362004' && role === 'admin') {
           const adminUser: User = {
             id: 'admin-hardcoded-id',
@@ -125,12 +132,22 @@ export const useAuthStore = create<AuthState>()(
             password,
           });
 
-          if (!error && data.user) {
+          if (error) {
+            set({ error: error.message });
+            return false;
+          }
+
+          if (data.user) {
             const mappedUser = await get().fetchProfile(data.user.id);
             if (mappedUser && mappedUser.role === role) {
               set({ user: mappedUser, isAuthenticated: true });
               return true;
+            } else if (mappedUser) {
+              set({ error: `Please log in using the ${mappedUser.role} tab.` });
+              await supabase.auth.signOut();
+              return false;
             } else {
+              set({ error: 'Profile not found. Please contact support.' });
               await supabase.auth.signOut();
               return false;
             }
@@ -140,8 +157,10 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signup: async (data: SignupData) => {
+        set({ error: null });
+        
         if (!supabase) {
-          console.error('Supabase is not configured. Please check your .env.local file.');
+          set({ error: 'Database connection not configured. Please check your .env.local file.' });
           return false;
         }
 
@@ -163,33 +182,33 @@ export const useAuthStore = create<AuthState>()(
         });
 
         if (error) {
-          console.error('Supabase signup error:', error.message);
+          set({ error: error.message });
           return false;
         }
 
         if (authData.user) {
-          // If email confirmation is required, the session might be null
-          // Check if we have a session
           const { data: { session } } = await supabase.auth.getSession();
           
           if (!session) {
-            console.log('Signup successful but email confirmation might be required.');
-            // For college presentation convenience, we assume success if user was created
+            set({ error: 'Registration successful! Please check your email to verify your account before logging in.' });
             return true;
           }
 
-          // Retry fetching profile a few times in case the trigger is slow
+          // Retry fetching profile (trigger sync)
           let mappedUser = null;
-          for (let i = 0; i < 3; i++) {
+          for (let i = 0; i < 5; i++) {
             mappedUser = await get().fetchProfile(authData.user.id);
             if (mappedUser) break;
-            await new Promise(resolve => setTimeout(resolve, 1000)); // wait 1s
+            await new Promise(resolve => setTimeout(resolve, 800 * (i + 1))); 
           }
 
           if (mappedUser) {
             set({ user: mappedUser, isAuthenticated: true });
+            return true;
+          } else {
+            set({ error: 'Account created, but profile setup is taking longer than expected. Please try logging in in a few moments.' });
+            return true; // Still return true as account was created
           }
-          return true;
         }
         return false;
       },

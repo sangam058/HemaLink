@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Building2, Heart, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
@@ -28,10 +28,13 @@ export function SignupPage() {
     hospitalName: '',
     licenseNumber: '',
   });
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signup } = useAuthStore();
+  const { signup, error, clearError } = useAuthStore();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    clearError();
+  }, [role, clearError]);
 
   const roles = [
     { id: 'donor' as UserRole, label: 'Blood Donor', icon: <Heart className="w-6 h-6" />, desc: 'Donate blood and save lives' },
@@ -56,10 +59,9 @@ export function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      // Manual check for password match before store call
       return;
     }
 
@@ -84,19 +86,14 @@ export function SignupPage() {
       });
 
       if (success) {
-        // Check if user is actually logged in (useAuthStore handles setting user)
+        // useAuthStore tracks user state
         const user = useAuthStore.getState().user;
         if (user) {
           navigate(`/${role}`);
-        } else {
-          // Signup successful but session not established (likely email confirmation required)
-          setError('Registration successful! Please check your email to verify your account before logging in.');
         }
-      } else {
-        setError('Registration failed. Please check your details and try again.');
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      console.error('Signup error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -148,27 +145,18 @@ export function SignupPage() {
                 <h3 className="text-lg font-semibold text-slate-800 text-center mb-4">
                   I want to register as:
                 </h3>
-                <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-3 mb-6">
                   {roles.map((r) => (
                     <button
                       key={r.id}
-                      type="button"
                       onClick={() => setRole(r.id)}
-                      className={`w-full p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-4 text-left ${
-                        role === r.id
-                          ? 'border-rose-500 bg-rose-50'
-                          : 'border-slate-200 hover:border-slate-300'
-                      }`}
+                      className={`p-4 rounded-2xl border-2 transition-all duration-300 text-center ${role === r.id
+                        ? 'border-rose-500 bg-rose-50 text-rose-600 shadow-lg shadow-rose-200/50 scale-105'
+                        : 'border-slate-100 text-slate-400 hover:border-slate-200 hover:bg-slate-50'
+                        }`}
                     >
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        role === r.id ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        {r.icon}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-800">{r.label}</div>
-                        <div className="text-sm text-slate-500">{r.desc}</div>
-                      </div>
+                      <div className="flex justify-center mb-2">{r.icon}</div>
+                      <div className="text-xs font-bold leading-tight">{r.label}</div>
                     </button>
                   ))}
                 </div>
@@ -296,6 +284,16 @@ export function SignupPage() {
                   required
                 />
 
+                {error && (
+                  <div className={`p-3 mb-4 text-sm rounded-lg ${
+                    error.toLowerCase().includes('successful') 
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                    : 'bg-red-50 text-red-600 border border-red-100'
+                  }`}>
+                    {error}
+                  </div>
+                )}
+
                 <div className="flex gap-3">
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(1)}>
                     Back
@@ -344,7 +342,7 @@ export function SignupPage() {
                     required
                   />
                 </div>
-                <Input
+                 <Input
                   label="Country"
                   name="country"
                   value={formData.country}
@@ -354,7 +352,11 @@ export function SignupPage() {
                 />
 
                 {error && (
-                  <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">
+                  <div className={`p-3 text-sm rounded-lg ${
+                    error.toLowerCase().includes('successful') 
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                    : 'bg-red-50 text-red-600 border border-red-100'
+                  }`}>
                     {error}
                   </div>
                 )}

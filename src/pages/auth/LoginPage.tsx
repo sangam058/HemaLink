@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Building2, Heart, Shield, Eye, EyeOff } from 'lucide-react';
@@ -13,10 +13,13 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<UserRole>('donor');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuthStore();
+  const { login, error, clearError } = useAuthStore();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    clearError();
+  }, [role, clearError]);
 
   const roles = [
     { id: 'donor' as UserRole, label: 'Donor', icon: <Heart className="w-5 h-5" />, color: 'rose' },
@@ -27,18 +30,15 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
 
     try {
       const success = await login(email, password, role);
       if (success) {
         navigate(`/${role}`);
-      } else {
-        setError('Invalid credentials. Please check your email and password.');
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      console.error('Login error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +117,11 @@ export function LoginPage() {
             />
 
             {error && (
-              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">
+              <div className={`p-3 text-sm rounded-lg ${
+                error.toLowerCase().includes('successful') 
+                ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                : 'bg-red-50 text-red-600 border border-red-100'
+              }`}>
                 {error}
               </div>
             )}
