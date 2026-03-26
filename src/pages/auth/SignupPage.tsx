@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Building2, Heart, Phone, MapPin } from 'lucide-react';
+import { Mail, Lock, User, Building2, Heart, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -12,6 +12,8 @@ import type { UserRole, BloodGroup } from '../../types';
 export function SignupPage() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<UserRole>('donor');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -242,22 +244,48 @@ export function SignupPage() {
                 />
                 <Input
                   label="Password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Create a password"
                   icon={<Lock className="w-5 h-5" />}
+                  rightIcon={
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="p-1 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5 text-slate-400" />
+                      ) : (
+                        <Eye className="w-5 h-5 text-slate-400" />
+                      )}
+                    </button>
+                  }
                   required
                 />
                 <Input
                   label="Confirm Password"
-                  type="password"
+                  type={showConfirmPassword ? 'text' : 'password'}
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   placeholder="Confirm your password"
                   icon={<Lock className="w-5 h-5" />}
+                  rightIcon={
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="p-1 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-5 h-5 text-slate-400" />
+                      ) : (
+                        <Eye className="w-5 h-5 text-slate-400" />
+                      )}
+                    </button>
+                  }
                   required
                 />
 
