@@ -78,14 +78,15 @@ export const useAuthStore = create<AuthState>()(
           admin: 'admins(*)'
         };
 
-        const { data: profile, error } = await supabase
+        const { data, error } = await supabase
           .from('profiles')
           .select(`*, ${Object.values(roleQueryMap).join(', ')}`)
           .eq('id', userId)
           .single();
 
-        if (error || !profile) return null;
+        if (error || !data) return null;
 
+        const profile = data as any;
         const roleData = profile.donors?.[0] || profile.requesters?.[0] || profile.hospitals?.[0] || profile.admins?.[0] || {};
 
         return {
