@@ -159,13 +159,12 @@ export const useDataStore = create<DataState>()(
         if (!supabase) return;
         
         try {
-          const [reqRes, donRes, invRes, campRes, hospRes, donorRes] = await Promise.all([
+          // Fetch base tables that should always exist
+          const [reqRes, donRes, invRes, campRes] = await Promise.all([
             supabase.from('blood_requests').select('*').order('created_at', { ascending: false }),
             supabase.from('donations').select('*').order('created_at', { ascending: false }),
             supabase.from('blood_inventory').select('*'),
             supabase.from('campaigns').select('*').order('created_at', { ascending: false }),
-            supabase.from('profiles').select('*, hospitals(*)').eq('role', 'hospital'),
-            supabase.from('profiles').select('*, donors(*)').eq('role', 'donor'),
           ]);
 
           if (reqRes.data) set({ requests: reqRes.data.map(mapBloodRequest) });
@@ -173,33 +172,34 @@ export const useDataStore = create<DataState>()(
           if (invRes.data) set({ inventory: invRes.data.map(mapInventory) });
           if (campRes.data) set({ campaigns: campRes.data.map(mapCampaign) });
           
-          if (hospRes.data) {
-            set({
-              hospitals: hospRes.data.map((h: any) => ({
-                ...h,
-                ...h.hospitals?.[0],
-                hospitalName: h.hospitals?.[0]?.hospital_name,
-                licenseNumber: h.hospitals?.[0]?.license_number,
-                status: h.hospitals?.[0]?.status,
-                verifiedAt: h.hospitals?.[0]?.verified_at
-              }))
-            });
-          }
+          // Fetch Profiles and their specific data separately to avoid 406 joining errors
+          const { data: profiles, error: pError } = await supabase.from('profiles').select('*');
+          
+          if (profiles) {
+            const hospitalProfiles = profiles.filter(p => p.role === 'hospital');
+            const donorProfiles = profiles.filter(p => p.role === 'donor');
 
-          if (donorRes.data) {
-            set({
-              donors: donorRes.data.map((d: any) => ({
-                ...d,
-                ...d.donors?.[0],
-                bloodGroup: d.donors?.[0]?.blood_group,
-                points: d.donors?.[0]?.points,
-                level: d.donors?.[0]?.level,
-                badges: d.donors?.[0]?.badges,
-                totalDonations: d.donors?.[0]?.total_donations,
-                lastDonationDate: d.donors?.[0]?.last_donation_date,
-                isAvailable: d.donors?.[0]?.is_available
-              }))
-            });
+            // Fetch hospital details
+            if (hospitalProfiles.length > 0) {
+              const { data: hospDetails } = await supabase.from('hospitals').select('*').in('id', hospitalProfiles.map(p => p.id));
+              set({
+                hospitals: hospitalProfiles.map(p => {
+                  const details = hospDetails?.find(h => h.id === p.id);
+                  return { ...p, ...details, hospitalName: details?.hospital_name, licenseNumber: details?.license_number, status: details?.status };
+                })
+              });
+            }
+
+            // Fetch donor details
+            if (donorProfiles.length > 0) {
+              const { data: donorDetails } = await supabase.from('donors').select('*').in('id', donorProfiles.map(p => p.id));
+              set({
+                donors: donorProfiles.map(p => {
+                  const details = donorDetails?.find(d => d.id === p.id);
+                  return { ...p, ...details, bloodGroup: details?.blood_group, points: details?.points, isAvailable: details?.is_available };
+                })
+              });
+            }
           }
         } catch (error) {
           console.error('Error fetching data from Supabase:', error);

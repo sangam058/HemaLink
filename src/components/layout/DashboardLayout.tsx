@@ -15,6 +15,18 @@ export function DashboardLayout({ allowedRole }: DashboardLayoutProps) {
     return <Navigate to="/login" replace />;
   }
 
+  // Safeguard: Wait for user profile to load if authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-12 h-12 bg-rose-200 rounded-full"></div>
+          <p className="text-slate-400 font-medium">Securing session...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (user?.role !== allowedRole) {
     return <Navigate to={`/${user?.role}`} replace />;
   }
