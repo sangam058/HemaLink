@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Building2, Heart, Shield } from 'lucide-react';
+import { Mail, Lock, User, Building2, Heart, Shield, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -11,6 +11,7 @@ import type { UserRole } from '../../types';
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<UserRole>('donor');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -93,11 +94,24 @@ export function LoginPage() {
             />
             <Input
               label="Password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               icon={<Lock className="w-5 h-5" />}
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="p-1 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5 text-slate-400" />
+                  ) : (
+                    <Eye className="w-5 h-5 text-slate-400" />
+                  )}
+                </button>
+              }
               autoComplete="new-password"
               required
             />
