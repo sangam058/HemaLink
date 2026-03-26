@@ -1,14 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
 
-// Only create the client if we have valid credentials to avoid fatal URL errors
-export const supabase = (supabaseUrl && supabaseUrl !== 'YOUR_SUPABASE_PROJECT_URL') 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null as any;
-
-// Provide a warning if Supabase is not configured
-if (!supabase) {
-  console.warn('Supabase is not configured. Some features may not work, falling back to local mock data.');
+// Only show warning if keys are missing in production/vercel
+if ((!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) && import.meta.env.PROD) {
+  console.warn('⚠️ Supabase credentials missing. Check your Vercel Environment Variables.');
 }
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
