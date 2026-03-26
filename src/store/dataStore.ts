@@ -173,7 +173,7 @@ export const useDataStore = create<DataState>()(
           if (campRes.data) set({ campaigns: campRes.data.map(mapCampaign) });
           
           // Fetch Profiles and their specific data separately to avoid 406 joining errors
-          const { data: profiles, error: pError } = await supabase.from('profiles').select('*');
+          const { data: profiles } = await supabase.from('profiles').select('*');
           
           if (profiles) {
             const hospitalProfiles = profiles.filter(p => p.role === 'hospital');
