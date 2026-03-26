@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Building2, Heart, Shield, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, Building2, Heart, Shield, Eye, EyeOff, Droplets } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -53,14 +53,11 @@ export function LoginPage() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-4">
-            <img src="/logo.png" alt="HemaLink" className="w-12 h-12" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-rose-600 to-red-600 bg-clip-text text-transparent">
-              HemaLink
-            </span>
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-800">Welcome Back</h1>
-          <p className="text-slate-600">Sign in to continue saving lives</p>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-rose-50 text-rose-500 mb-4 shadow-inner">
+            <Droplets className="w-10 h-10" />
+          </div>
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">Welcome Back</h2>
+          <p className="text-slate-500">Every drop counts. Sign in to continue saving lives.</p>
         </div>
 
         <Card>
