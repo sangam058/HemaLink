@@ -55,7 +55,7 @@ export function PublicLayout() {
           </div>
           <div className="border-t border-slate-800 mt-8 pt-8 flex flex-col md:flex-row items-center justify-between">
             <p className="text-slate-400 text-sm">
-              © 2025 HemaLink. All rights reserved.
+              © 2026 HemaLink. All rights reserved.
             </p>
             <p className="text-slate-400 text-sm flex items-center gap-1 mt-2 md:mt-0">
               Made with <Heart className="w-4 h-4 text-rose-500 fill-rose-500" /> for humanity
