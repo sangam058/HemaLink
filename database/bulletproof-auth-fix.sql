@@ -62,8 +62,13 @@ BEGIN
         VALUES (new.id, COALESCE(new.raw_user_meta_data->>'emergencyContact', ''))
         ON CONFLICT (id) DO NOTHING;
       WHEN 'hospital' THEN
-        INSERT INTO public.hospitals (id, hospital_name, status)
-        VALUES (new.id, COALESCE(new.raw_user_meta_data->>'hospitalName', extracted_name), 'active')
+        INSERT INTO public.hospitals (id, hospital_name, license_number, status)
+        VALUES (
+          new.id, 
+          COALESCE(new.raw_user_meta_data->>'hospitalName', extracted_name),
+          COALESCE(new.raw_user_meta_data->>'licenseNumber', 'PENDING'),
+          'active'
+        )
         ON CONFLICT (id) DO NOTHING;
       WHEN 'admin' THEN
         INSERT INTO public.admins (id, permissions)

@@ -239,9 +239,10 @@ export const useAuthStore = create<AuthState>()(
               return true;
             }
             
-            // If still no profile, we at least have the auth session
-            set({ isAuthenticated: true });
-            return true;
+            // If still no profile, the database trigger definitely failed.
+            await supabase.auth.signOut();
+            set({ error: 'Profile creation failed in database constraints. Please check server logs.' });
+            return false;
           }
           return false;
         } catch (error: any) {
