@@ -1,25 +1,44 @@
-# React + TypeScript + Vite
+# Hemalink - Blood Donation Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern blood donation management platform built with React, TypeScript, and Supabase. Connects donors, blood requesters, and hospitals to streamline the blood donation process.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### For Donors
+- **Personal Dashboard**: Track donations, points, and rewards
+- **Blood Request Matching**: Get notified for matching blood requests
+- **Donation Booking**: Schedule donations at nearby hospitals
+- **Gamification**: Earn points, level up, and unlock badges
+- **Campaign Participation**: Join blood donation campaigns
 
-## React Compiler
+### For Blood Requesters
+- **Request Management**: Create and track blood requests
+- **Real-time Updates**: Get notified when donors are assigned
+- **Emergency Requests**: Priority marking for urgent needs
+- **Request History**: View all past and current requests
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### For Hospitals
+- **Inventory Management**: Track blood stock levels
+- **Donation Coordination**: Manage donor appointments
+- **Campaign Organization**: Create and manage blood drives
+- **Request Fulfillment**: Process and fulfill blood requests
 
-## Expanding the ESLint configuration
+### For Administrators
+- **User Management**: Oversee all platform users
+- **System Monitoring**: Track platform activity and health
+- **Report Generation**: Generate insights and reports
+- **Content Moderation**: Approve hospitals and campaigns
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🛠️ Tech Stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
+- **Frontend**: React 19, TypeScript, TailwindCSS
+- **Backend**: Supabase (PostgreSQL, Auth, Real-time)
+- **Deployment**: Vercel
+- **State Management**: Zustand
+- **Routing**: React Router v7
+- **UI Components**: Custom components with TailwindCSS
+- **Icons**: Lucide React
+- **Animations**: Framer Motion
     extends: [
       // Other configs...
 

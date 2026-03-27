@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, UserRole, BloodGroup } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface AuthState {
   user: User | null;
@@ -48,77 +48,201 @@ export const useAuthStore = create<AuthState>()(
       clearError: () => set({ error: null }),
 
       initialize: async () => {
-        if (!supabase) return;
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const mappedUser = await get().fetchProfile(session.user.id);
-          if (mappedUser) {
-            set({ user: mappedUser, isAuthenticated: true });
-          }
+        if (!isSupabaseConfigured) {
+          console.error('❌ Supabase not configured. Cannot initialize auth.');
+          return;
         }
 
-        supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-          if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
             const mappedUser = await get().fetchProfile(session.user.id);
             if (mappedUser) {
               set({ user: mappedUser, isAuthenticated: true });
+            } else {
+              console.warn('⚠️ User session found but profile not found. User may need to complete registration.');
+              set({ user: null, isAuthenticated: false });
             }
-          } else if (event === 'SIGNED_OUT') {
-            set({ user: null, isAuthenticated: false });
           }
-        });
+
+          supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+            console.log('🔐 Auth state changed:', event, session?.user?.id);
+            
+            if (event === 'SIGNED_IN' && session?.user) {
+              // Retry profile fetching with exponential backoff
+              let mappedUser = null;
+              let retries = 0;
+              const maxRetries = 5;
+              
+              while (!mappedUser && retries < maxRetries) {
+                mappedUser = await get().fetchProfile(session.user.id);
+                if (!mappedUser) {
+                  retries++;
+                  const delay = Math.min(1000 * Math.pow(2, retries), 5000); // Max 5 seconds
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                  console.log(`🔄 Retry ${retries}/${maxRetries} for profile fetch...`);
+                }
+              }
+
+              if (mappedUser) {
+                set({ user: mappedUser, isAuthenticated: true });
+                console.log('✅ User profile loaded successfully');
+              } else {
+                console.error('❌ Failed to fetch user profile after retries');
+                set({ error: 'Profile not found. Please contact support.', user: null, isAuthenticated: false });
+              }
+            } else if (event === 'SIGNED_OUT') {
+              set({ user: null, isAuthenticated: false, error: null });
+            }
+          });
+        } catch (error) {
+          console.error('❌ Auth initialization error:', error);
+          set({ error: 'Failed to initialize authentication. Please refresh the page.' });
+        }
       },
 
       fetchProfile: async (userId: string): Promise<User | null> => {
-        // 1. Get the base profile first to find the role
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-
-        if (profileError || !profile) return null;
-
-        // 2. Map role to specific table
-        const roleTableMap: Record<UserRole, string> = {
-          donor: 'donors',
-          requester: 'requesters',
-          hospital: 'hospitals',
-          admin: 'admins'
-        };
-
-        const tableName = roleTableMap[profile.role as UserRole];
-        let roleData = {};
-
-        // 3. Only fetch role data if we have a valid table name
-        if (tableName) {
-          const { data: roleSpecific, error: roleError } = await supabase
-            .from(tableName as any)
+        try {
+          console.log('🔍 Fetching profile for user:', userId);
+          
+          // 1. Get the base profile first to find the role
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
             .select('*')
             .eq('id', userId)
             .single();
-          
-          if (!roleError && roleSpecific) {
-            roleData = roleSpecific;
-          }
-        }
 
-        // 4. Merge and return as User
-        const userData = profile as any;
-        return {
-          ...userData,
-          ...roleData,
-          bloodGroup: (roleData as any).blood_group,
-          hospitalName: (roleData as any).hospital_name,
-          licenseNumber: (roleData as any).license_number,
-          isVerified: userData.is_verified,
-          createdAt: new Date(userData.created_at),
-          totalDonations: (roleData as any).total_donations,
-          lastDonationDate: (roleData as any).last_donation_date ? new Date((roleData as any).last_donation_date) : undefined,
-          isAvailable: (roleData as any).is_available,
-          emergencyContact: (roleData as any).emergency_contact
-        } as User;
+          if (profileError) {
+            console.error('❌ Profile fetch error:', profileError);
+            
+            // If profile doesn't exist, try to create it from auth metadata
+            if (profileError.code === 'PGRST116') {
+              console.log('🔧 Profile not found, attempting to create from auth metadata...');
+              
+              const { data: { user } } = await supabase.auth.getUser(userId);
+              if (user?.user_metadata) {
+                const metadata = user.user_metadata;
+                
+                // Create base profile
+                const { error: createError } = await supabase
+                  .from('profiles')
+                  .insert({
+                    id: userId,
+                    email: user.email || '',
+                    name: metadata.name || 'New User',
+                    phone: metadata.phone || '',
+                    role: metadata.role || 'donor',
+                    location: metadata.location || { city: 'Mumbai', address: 'Not provided' },
+                    is_verified: false
+                  });
+
+                if (createError) {
+                  console.error('❌ Failed to create profile:', createError);
+                  return null;
+                }
+
+                // Create role-specific data
+                if (metadata.role === 'donor') {
+                  const { error: donorError } = await supabase
+                    .from('donors')
+                    .insert({
+                      id: userId,
+                      blood_group: metadata.bloodGroup || 'O+',
+                      points: 0,
+                      level: 1,
+                      badges: [],
+                      total_donations: 0,
+                      is_available: true
+                    });
+                  
+                  if (donorError) {
+                    console.warn('⚠️ Failed to create donor data:', donorError);
+                  }
+                }
+
+                console.log('✅ Profile created successfully from auth metadata');
+                return get().fetchProfile(userId); // Retry fetching
+              }
+            }
+            return null;
+          }
+
+          if (!profile) {
+            console.warn('⚠️ No profile found for user:', userId);
+            return null;
+          }
+
+          console.log('✅ Base profile found:', profile.role);
+
+          // 2. Map role to specific table
+          const roleTableMap: Record<UserRole, string> = {
+            donor: 'donors',
+            requester: 'requesters',
+            hospital: 'hospitals',
+            admin: 'admins'
+          };
+
+          const tableName = roleTableMap[profile.role as UserRole];
+          let roleData = {};
+
+          // 3. Only fetch role data if we have a valid table name
+          if (tableName) {
+            const { data: roleSpecific, error: roleError } = await supabase
+              .from(tableName as any)
+              .select('*')
+              .eq('id', userId)
+              .single();
+            
+            if (roleError) {
+              console.warn(`⚠️ Role data fetch error for ${tableName}:`, roleError);
+              
+              // If role data doesn't exist, create it
+              if (roleError.code === 'PGRST116' && profile.role === 'donor') {
+                console.log('🔧 Creating missing donor data...');
+                const { error: createDonorError } = await supabase
+                  .from('donors')
+                  .insert({
+                    id: userId,
+                    blood_group: 'O+',
+                    points: 0,
+                    level: 1,
+                    badges: [],
+                    total_donations: 0,
+                    is_available: true
+                  });
+                
+                if (createDonorError) {
+                  console.warn('⚠️ Failed to create donor data:', createDonorError);
+                }
+              }
+            } else if (roleSpecific) {
+              roleData = roleSpecific;
+              console.log(`✅ Role data found for ${tableName}`);
+            }
+          }
+
+          // 4. Merge and return as User
+          const userData = profile as any;
+          const mappedUser = {
+            ...userData,
+            ...roleData,
+            bloodGroup: (roleData as any).blood_group,
+            hospitalName: (roleData as any).hospital_name,
+            licenseNumber: (roleData as any).license_number,
+            isVerified: userData.is_verified,
+            createdAt: new Date(userData.created_at),
+            totalDonations: (roleData as any).total_donations,
+            lastDonationDate: (roleData as any).last_donation_date ? new Date((roleData as any).last_donation_date) : undefined,
+            isAvailable: (roleData as any).is_available,
+            emergencyContact: (roleData as any).emergency_contact
+          } as User;
+
+          console.log('✅ User profile mapped successfully:', mappedUser.role);
+          return mappedUser;
+        } catch (error) {
+          console.error('❌ Unexpected error in fetchProfile:', error);
+          return null;
+        }
       },
 
       login: async (email: string, password: string, role: UserRole) => {
@@ -177,58 +301,77 @@ export const useAuthStore = create<AuthState>()(
       signup: async (data: SignupData) => {
         set({ error: null });
         
-        if (!supabase) {
-          set({ error: 'Database connection not configured. Please check your .env.local file.' });
+        if (!isSupabaseConfigured) {
+          set({ error: 'Database connection not configured. Please check your environment variables.' });
           return false;
         }
 
-        const { data: authData, error } = await supabase.auth.signUp({
-          email: data.email,
-          password: data.password,
-          options: {
-            data: {
-              name: data.name,
-              phone: data.phone,
-              role: data.role,
-              location: data.location,
-              bloodGroup: data.bloodGroup,
-              hospitalName: data.hospitalName,
-              licenseNumber: data.licenseNumber,
-              emergencyContact: data.emergencyContact
+        try {
+          console.log('🚀 Starting signup for:', data.email, 'as', data.role);
+
+          const { data: authData, error } = await supabase.auth.signUp({
+            email: data.email,
+            password: data.password,
+            options: {
+              data: {
+                name: data.name,
+                phone: data.phone,
+                role: data.role,
+                location: data.location,
+                bloodGroup: data.bloodGroup,
+                hospitalName: data.hospitalName,
+                licenseNumber: data.licenseNumber,
+                emergencyContact: data.emergencyContact
+              }
+            }
+          });
+
+          if (error) {
+            console.error('❌ Signup error:', error);
+            set({ error: error.message });
+            return false;
+          }
+
+          if (authData.user) {
+            console.log('✅ Auth user created:', authData.user.id);
+            
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (!session) {
+              console.log('📧 Email verification required');
+              set({ error: 'Registration successful! Please check your email to verify your account before logging in.' });
+              return true;
+            }
+
+            // Retry fetching profile with better timing
+            console.log('⏳ Waiting for profile creation...');
+            let mappedUser = null;
+            for (let i = 0; i < 8; i++) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+              mappedUser = await get().fetchProfile(authData.user.id);
+              if (mappedUser) {
+                console.log(`✅ Profile found after ${i + 1} attempts`);
+                break;
+              }
+              console.log(`🔄 Profile attempt ${i + 1}/8...`);
+            }
+
+            if (mappedUser) {
+              set({ user: mappedUser, isAuthenticated: true });
+              console.log('🎉 Registration and profile setup complete!');
+              return true;
+            } else {
+              console.error('❌ Profile creation failed after retries');
+              set({ error: 'Account created, but profile setup failed. Please try logging in manually or contact support.' });
+              return true; // Still return true as auth account was created
             }
           }
-        });
-
-        if (error) {
-          set({ error: error.message });
+          return false;
+        } catch (error) {
+          console.error('❌ Unexpected signup error:', error);
+          set({ error: 'Registration failed due to an unexpected error. Please try again.' });
           return false;
         }
-
-        if (authData.user) {
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (!session) {
-            set({ error: 'Registration successful! Please check your email to verify your account before logging in.' });
-            return true;
-          }
-
-          // Retry fetching profile (trigger sync)
-          let mappedUser = null;
-          for (let i = 0; i < 5; i++) {
-            mappedUser = await get().fetchProfile(authData.user.id);
-            if (mappedUser) break;
-            await new Promise(resolve => setTimeout(resolve, 800 * (i + 1))); 
-          }
-
-          if (mappedUser) {
-            set({ user: mappedUser, isAuthenticated: true });
-            return true;
-          } else {
-            set({ error: 'Account created, but profile setup is taking longer than expected. Please try logging in in a few moments.' });
-            return true; // Still return true as account was created
-          }
-        }
-        return false;
       },
 
       logout: async () => {
