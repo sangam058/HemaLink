@@ -194,16 +194,54 @@ export const useAuthStore = create<AuthState>()(
           if (error) throw error;
 
           if (authData.user) {
-            // Give the trigger a moment, then fetch
-            for (let i = 0; i < 5; i++) {
-              await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-              const user = await get().fetchProfile(authData.user!.id);
-              if (user) {
-                set({ user, isAuthenticated: true });
-                return true;
+            // FALLBACK: Wait for trigger or create profile manually if it fails
+            let profile = await get().fetchProfile(authData.user.id);
+            
+            if (!profile) {
+              console.warn('Profile not created by trigger, attempting manual creation...');
+              try {
+                // Manual insertion fallback
+                const { error: pError } = await supabase.from('profiles').insert({
+                  id: authData.user.id,
+                  email: data.email,
+                  name: data.name,
+                  phone: data.phone,
+                  role: data.role,
+                  location: data.location,
+                  is_verified: false
+                });
+                
+                if (!pError) {
+                  // Role-specific table creation fallback
+                  const roleTableMap: Record<string, string> = {
+                    donor: 'donors',
+                    requester: 'requesters',
+                    hospital: 'hospitals'
+                  };
+                  const tableName = roleTableMap[data.role];
+                  if (tableName) {
+                    await supabase.from(tableName as any).insert({
+                      id: authData.user.id,
+                      ...(data.role === 'donor' ? { blood_group: data.bloodGroup } : {}),
+                      ...(data.role === 'requester' ? { emergency_contact: data.emergencyContact } : {}),
+                      ...(data.role === 'hospital' ? { hospital_name: data.hospitalName, license_number: data.licenseNumber, status: 'active' } : {})
+                    });
+                  }
+                  profile = await get().fetchProfile(authData.user.id);
+                }
+              } catch (fallbackError) {
+                console.error('Frontend profile fallback failed:', fallbackError);
               }
             }
-            return true; // Auth success, profile might take longer
+
+            if (profile) {
+              set({ user: profile, isAuthenticated: true });
+              return true;
+            }
+            
+            // If still no profile, we at least have the auth session
+            set({ isAuthenticated: true });
+            return true;
           }
           return false;
         } catch (error: any) {

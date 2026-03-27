@@ -89,3 +89,14 @@ export interface DatabaseCampaign {
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   created_at: string;
 }
+
+export interface DatabaseNotification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: 'request' | 'donation' | 'campaign' | 'reward' | 'system';
+  is_read: boolean;
+  link?: string;
+  created_at: string;
+}

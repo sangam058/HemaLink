@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { BloodRequest, Donation, Campaign, Notification, BloodInventory, Hospital, Donor, BloodGroup, RequestStatus, DonationStatus } from '../types';
-import type { DatabaseBloodRequest, DatabaseDonation, DatabaseInventory, DatabaseCampaign } from '../types/database';
+import type { DatabaseBloodRequest, DatabaseDonation, DatabaseInventory, DatabaseCampaign, DatabaseNotification } from '../types/database';
 import { supabase } from '../lib/supabase';
 
 export type RealtimeStatus = 'connected' | 'connecting' | 'error' | 'disconnected';
@@ -119,6 +119,17 @@ const mapCampaign = (dbCamp: DatabaseCampaign): Campaign => ({
   createdAt: new Date(dbCamp.created_at),
 });
 
+const mapNotification = (dbNotif: DatabaseNotification): Notification => ({
+  id: dbNotif.id,
+  userId: dbNotif.user_id,
+  title: dbNotif.title,
+  message: dbNotif.message,
+  type: dbNotif.type,
+  isRead: dbNotif.is_read,
+  link: dbNotif.link,
+  createdAt: new Date(dbNotif.created_at),
+});
+
 export const useDataStore = create<DataState>()(
   persist(
     (set, get) => ({
@@ -144,6 +155,7 @@ export const useDataStore = create<DataState>()(
           .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, () => get().fetchInitialData())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'blood_inventory' }, () => get().fetchInitialData())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, () => get().fetchInitialData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => get().fetchInitialData())
           .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
               set({ connectionStatus: 'connected' });
@@ -164,11 +176,12 @@ export const useDataStore = create<DataState>()(
         set({ isLoading: true, error: null });
         
         try {
-          const [reqRes, donRes, invRes, campRes] = await Promise.all([
+          const [reqRes, donRes, invRes, campRes, notifRes] = await Promise.all([
             supabase.from('blood_requests').select('*').order('created_at', { ascending: false }),
             supabase.from('donations').select('*').order('created_at', { ascending: false }),
             supabase.from('blood_inventory').select('*'),
             supabase.from('campaigns').select('*').order('created_at', { ascending: false }),
+            supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
           ]);
 
           if (reqRes.error) throw reqRes.error;
@@ -181,6 +194,7 @@ export const useDataStore = create<DataState>()(
             donations: (donRes.data as DatabaseDonation[]).map(mapDonation),
             inventory: (invRes.data as DatabaseInventory[]).map(mapInventory),
             campaigns: (campRes.data as DatabaseCampaign[]).map(mapCampaign),
+            notifications: (notifRes.data as DatabaseNotification[]).map(mapNotification)
           });
           
           const { data: profiles, error: profileError } = await supabase.from('profiles').select('*');
@@ -401,16 +415,50 @@ export const useDataStore = create<DataState>()(
       },
 
       addNotification: async (notificationData) => {
-        const newNotification: Notification = {
-          ...notificationData,
-          id: `notif-${Date.now()}`,
-          isRead: false,
-          createdAt: new Date(),
+        if (!supabase) return;
+        
+        const dbPayload = {
+          user_id: notificationData.userId,
+          title: notificationData.title,
+          message: notificationData.message,
+          type: notificationData.type,
+          link: notificationData.link,
+          is_read: false
         };
+
+        const { data, error } = await supabase.from('notifications').insert(dbPayload).select().single();
+        if (error) {
+          console.error('Failed to create notification in DB:', error);
+          // Fallback to local only if DB fails
+          const newNotification: Notification = {
+            ...notificationData,
+            id: `notif-${Date.now()}`,
+            isRead: false,
+            createdAt: new Date(),
+          };
+          set((state) => ({ notifications: [newNotification, ...state.notifications] }));
+          return;
+        }
+
+        const newNotification = mapNotification(data as DatabaseNotification);
         set((state) => ({ notifications: [newNotification, ...state.notifications] }));
       },
 
       markNotificationRead: async (id) => {
+        if (!supabase) return;
+        // If it's a local-only notification (starts with notif-), just update local
+        if (id.startsWith('notif-')) {
+          set((state) => ({
+            notifications: state.notifications.map((notif) =>
+              notif.id === id ? { ...notif, isRead: true } : notif
+            ),
+          }));
+          return;
+        }
+
+        const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+        if (error) throw error;
+
         set((state) => ({
           notifications: state.notifications.map((notif) =>
             notif.id === id ? { ...notif, isRead: true } : notif
@@ -419,6 +467,10 @@ export const useDataStore = create<DataState>()(
       },
 
       markAllNotificationsRead: async (userId) => {
+        if (!supabase) return;
+        const { error } = await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId).eq('is_read', false);
+        if (error) throw error;
+
         set((state) => ({
           notifications: state.notifications.map((notif) =>
             notif.userId === userId ? { ...notif, isRead: true } : notif
