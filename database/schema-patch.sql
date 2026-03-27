@@ -66,23 +66,42 @@ CREATE EXTENSION IF NOT EXISTS "pg_net";
 -- Function to call the notification-hub edge function
 CREATE OR REPLACE FUNCTION public.call_notification_hub()
 RETURNS trigger AS $$
-BEGIN
-  PERFORM
-    net.http_post(
-      url := 'https://' || current_setting('request.headers')::jsonb->>'host' || '/functions/v1/notification-hub',
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('request.headers')::jsonb->>'authorization'
-      ),
-      body := jsonb_build_object(
-        'table', TG_TABLE_NAME,
-        'type', TG_OP,
-        'record', row_to_json(NEW),
-        'old_record', row_to_json(OLD)
-      )::text
-    );
-  RETURN NEW;
-END;
+  DECLARE
+    headers_text TEXT;
+    host_val TEXT;
+    auth_val TEXT;
+  BEGIN
+    -- This helps avoid errors when running from the SQL Editor where headers are missing
+    BEGIN
+      headers_text := current_setting('request.headers', true);
+      IF headers_text IS NOT NULL AND headers_text LIKE '{%' THEN
+        host_val := headers_text::jsonb->>'host';
+        auth_val := headers_text::jsonb->>'authorization';
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      -- If headers are not valid JSON or missing, just keep them NULL
+    END;
+
+    -- Only proceed if we have a valid host (e.g. not a seed script)
+    IF host_val IS NOT NULL THEN
+      PERFORM net.http_post(
+        url := 'https://' || host_val || '/functions/v1/notification-hub',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || auth_val
+        ),
+        body := jsonb_build_object(
+          'table', TG_TABLE_NAME,
+          'type', TG_OP,
+          'record', row_to_json(NEW),
+          'old_record', row_to_json(OLD)
+        )::text
+      );
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    -- Completely silent failure for notifications to ensure main transaction SUCCEEDS
+    RAISE WARNING 'Notification hub trigger failed: %', SQLERRM;
+  END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Triggers for important events
