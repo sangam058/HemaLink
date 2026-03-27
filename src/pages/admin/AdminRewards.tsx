@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Award, Gift, Search, Plus, Star, Trophy } from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
 import { useDataStore } from '../../store/dataStore';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -12,7 +11,6 @@ import { Avatar } from '../../components/ui/Avatar';
 import type { Donor } from '../../types';
 
 export function AdminRewards() {
-  const { registeredUsers } = useAuthStore();
   const { donors, donations, addNotification } = useDataStore();
   const [search, setSearch] = useState('');
   const [selectedDonor, setSelectedDonor] = useState<Donor | null>(null);
@@ -20,21 +18,13 @@ export function AdminRewards() {
   const [rewardPoints, setRewardPoints] = useState('100');
   const [rewardReason, setRewardReason] = useState('');
 
-  // Get donors from both stores
-  const registeredDonors = Object.values(registeredUsers)
-    .filter((u: any) => u.role === 'donor') as Donor[];
-  const allDonors = [...donors, ...registeredDonors];
-  const uniqueDonors = allDonors.filter((d, index, self) => 
-    index === self.findIndex((t) => t.id === d.id)
-  );
-
-  const filteredDonors = uniqueDonors.filter((d) =>
+  const filteredDonors = donors.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase()) ||
     d.email.toLowerCase().includes(search.toLowerCase()) ||
-    d.bloodGroup.toLowerCase().includes(search.toLowerCase())
+    (d.bloodGroup && d.bloodGroup.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const getLevelName = (level: number) => {
+  const getLevelName = (level: number = 1) => {
     const levels = ['Newcomer', 'Helper', 'Supporter', 'Champion', 'Hero', 'Legend'];
     return levels[level - 1] || 'Newcomer';
   };
@@ -55,18 +45,13 @@ export function AdminRewards() {
     const newTotalPoints = (selectedDonor.points || 0) + points;
     const newLevel = getLevelFromPoints(newTotalPoints);
 
-    // Update donor in registered users
-    const { registeredUsers: users } = useAuthStore.getState();
-    if (users[selectedDonor.email]) {
-      const updatedUser = {
-        ...users[selectedDonor.email],
-        points: newTotalPoints,
-        level: newLevel,
-      };
-      useAuthStore.setState({
-        registeredUsers: { ...users, [selectedDonor.email]: updatedUser }
-      });
-    }
+    // Update in data store
+    const { donors: currentDonors } = useDataStore.getState();
+    useDataStore.setState({
+      donors: currentDonors.map(d => 
+        d.id === selectedDonor.id ? { ...d, points: newTotalPoints, level: newLevel } : d
+      )
+    });
 
     // Send notification to donor
     addNotification({
@@ -83,7 +68,7 @@ export function AdminRewards() {
     setRewardReason('');
   };
 
-  const totalPointsDistributed = uniqueDonors.reduce((sum, d) => sum + (d.points || 0), 0);
+  const totalPointsDistributed = donors.reduce((sum, d) => sum + (d.points || 0), 0);
   const completedDonations = donations.filter(d => d.status === 'completed');
   const totalPointsFromDonations = completedDonations.reduce((sum, d) => sum + d.pointsEarned, 0);
 
@@ -116,12 +101,12 @@ export function AdminRewards() {
         </Card>
         <Card className="text-center">
           <Star className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-slate-800">{uniqueDonors.filter(d => d.level >= 3).length}</div>
+          <div className="text-2xl font-bold text-slate-800">{donors.filter((d: Donor) => (d.level || 1) >= 3).length}</div>
           <div className="text-sm text-slate-500">High-Level Donors</div>
         </Card>
         <Card className="text-center">
           <Trophy className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-slate-800">{uniqueDonors.filter(d => d.level >= 5).length}</div>
+          <div className="text-2xl font-bold text-slate-800">{donors.filter((d: Donor) => (d.level || 1) >= 5).length}</div>
           <div className="text-sm text-slate-500">Hero+ Level Donors</div>
         </Card>
       </div>

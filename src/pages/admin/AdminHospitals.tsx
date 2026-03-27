@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Building2, CheckCircle, XCircle, Clock, MapPin, Phone, Mail, Trash2, AlertTriangle } from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
 import { useDataStore } from '../../store/dataStore';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -11,7 +10,6 @@ import { Modal } from '../../components/ui/Modal';
 import type { Hospital } from '../../types';
 
 export function AdminHospitals() {
-  const { registeredUsers } = useAuthStore();
   const { hospitals, approveHospital, rejectHospital, addNotification } = useDataStore();
 
   const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
@@ -19,37 +17,14 @@ export function AdminHospitals() {
   const [removeReason, setRemoveReason] = useState('');
   const [actionType, setActionType] = useState<'remove' | 'suspend'>('remove');
 
-  // Get hospitals from both data store and registered users
-  const registeredHospitals = Object.values(registeredUsers)
-    .filter((u: any) => u.role === 'hospital') as Hospital[];
-  const allHospitals = [...hospitals, ...registeredHospitals];
-  const uniqueHospitals = allHospitals.filter((h, index, self) => 
-    index === self.findIndex((t) => t.id === h.id)
-  );
-
-  const pending = uniqueHospitals.filter((h) => h.status === 'pending_approval');
-  const active = uniqueHospitals.filter((h) => h.status === 'active');
-  const suspended = uniqueHospitals.filter((h) => h.status === 'suspended');
-  const rejected = uniqueHospitals.filter((h) => h.status === 'rejected');
+  const pending = hospitals.filter((h) => h.status === 'pending_approval');
+  const active = hospitals.filter((h) => h.status === 'active');
+  const suspended = hospitals.filter((h) => h.status === 'suspended');
+  const rejected = hospitals.filter((h) => h.status === 'rejected');
 
   const handleApprove = (hospitalId: string) => {
     approveHospital(hospitalId);
     
-    // Also update in registered users
-    const { registeredUsers: users } = useAuthStore.getState();
-    const hospitalEmail = Object.keys(users).find(email => users[email].id === hospitalId);
-    if (hospitalEmail) {
-      const updatedUser = {
-        ...users[hospitalEmail],
-        status: 'active',
-        isVerified: true,
-        verifiedAt: new Date(),
-      };
-      useAuthStore.setState({
-        registeredUsers: { ...users, [hospitalEmail]: updatedUser }
-      });
-    }
-
     addNotification({
       userId: hospitalId,
       title: 'Account Approved! 🎉',
@@ -61,19 +36,6 @@ export function AdminHospitals() {
   const handleReject = (hospitalId: string) => {
     rejectHospital(hospitalId);
     
-    // Also update in registered users
-    const { registeredUsers: users } = useAuthStore.getState();
-    const hospitalEmail = Object.keys(users).find(email => users[email].id === hospitalId);
-    if (hospitalEmail) {
-      const updatedUser = {
-        ...users[hospitalEmail],
-        status: 'rejected',
-      };
-      useAuthStore.setState({
-        registeredUsers: { ...users, [hospitalEmail]: updatedUser }
-      });
-    }
-
     addNotification({
       userId: hospitalId,
       title: 'Account Rejected',
@@ -85,33 +47,15 @@ export function AdminHospitals() {
   const handleRemoveOrSuspend = () => {
     if (!selectedHospital || !removeReason.trim()) return;
 
-    const newStatus = actionType === 'remove' ? 'rejected' : 'suspended';
-    
-    // Update in data store
     if (actionType === 'remove') {
       rejectHospital(selectedHospital.id);
     } else {
-      // For suspend, we need to update status
+      // For suspend, we update status
       const { hospitals: currentHospitals } = useDataStore.getState();
       useDataStore.setState({
         hospitals: currentHospitals.map(h => 
           h.id === selectedHospital.id ? { ...h, status: 'suspended' as any } : h
         )
-      });
-    }
-
-    // Also update in registered users
-    const { registeredUsers: users } = useAuthStore.getState();
-    const hospitalEmail = Object.keys(users).find(email => users[email].id === selectedHospital.id);
-    if (hospitalEmail) {
-      const updatedUser = {
-        ...users[hospitalEmail],
-        status: newStatus,
-        suspendedReason: removeReason,
-        suspendedAt: new Date(),
-      };
-      useAuthStore.setState({
-        registeredUsers: { ...users, [hospitalEmail]: updatedUser }
       });
     }
 
@@ -129,24 +73,7 @@ export function AdminHospitals() {
   };
 
   const handleReactivate = (hospital: Hospital) => {
-    // Update in data store
     approveHospital(hospital.id);
-
-    // Also update in registered users
-    const { registeredUsers: users } = useAuthStore.getState();
-    const hospitalEmail = Object.keys(users).find(email => users[email].id === hospital.id);
-    if (hospitalEmail) {
-      const updatedUser = {
-        ...users[hospitalEmail],
-        status: 'active',
-        isVerified: true,
-        suspendedReason: undefined,
-        suspendedAt: undefined,
-      };
-      useAuthStore.setState({
-        registeredUsers: { ...users, [hospitalEmail]: updatedUser }
-      });
-    }
 
     addNotification({
       userId: hospital.id,
@@ -352,7 +279,7 @@ export function AdminHospitals() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="text-center">
-          <div className="text-2xl font-bold text-slate-800">{uniqueHospitals.length}</div>
+          <div className="text-2xl font-bold text-slate-800">{hospitals.length}</div>
           <div className="text-sm text-slate-500">Total Hospitals</div>
         </Card>
         <Card className="text-center">

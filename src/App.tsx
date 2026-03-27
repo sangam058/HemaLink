@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { useAuthStoreFallback } from './store/authStore-fallback';
+import { useAuthStore } from './store/authStore';
 import { useDataStore } from './store/dataStore';
 import { isSupabaseConfigured } from './lib/supabase';
 
@@ -91,7 +91,7 @@ function AppLoading() {
 }
 
 function App() {
-  const { initialize: initializeAuth } = useAuthStoreFallback();
+  const { initialize: initializeAuth } = useAuthStore();
   const { fetchInitialData, subscribeToRealtime } = useDataStore();
   const [isInitializing, setIsInitializing] = useState(true);
 

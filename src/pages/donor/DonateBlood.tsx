@@ -11,7 +11,7 @@ import { Badge } from '../../components/ui/Badge';
 import type { Donor, Hospital } from '../../types';
 
 export function DonateBlood() {
-  const { user, registeredUsers } = useAuthStore();
+  const { user } = useAuthStore();
   const { hospitals, createDonation, addNotification } = useDataStore();
   const donor = user as Donor;
 
@@ -22,14 +22,7 @@ export function DonateBlood() {
   const [isBooked, setIsBooked] = useState(false);
   const [searchCity, setSearchCity] = useState('');
 
-  // Get hospitals from both data store and registered users
-  const registeredHospitals = Object.values(registeredUsers)
-    .filter((u: any) => u.role === 'hospital' && u.status === 'active') as Hospital[];
-  const allHospitals = [...hospitals, ...registeredHospitals];
-  const uniqueHospitals = allHospitals.filter((h, index, self) => 
-    index === self.findIndex((t) => t.id === h.id)
-  );
-  const activeHospitals = uniqueHospitals.filter((h) => h.status === 'active');
+  const activeHospitals = hospitals.filter((h) => h.status === 'active');
   
   // Filter hospitals by city search
   const filteredHospitals = activeHospitals.filter((h) => 

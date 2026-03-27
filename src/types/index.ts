@@ -17,6 +17,17 @@ export interface User {
   avatar?: string;
   createdAt: Date;
   isVerified: boolean;
+  // Role-specific fields (optional in base User)
+  points?: number;
+  level?: number;
+  badges?: Badge[];
+  totalDonations?: number;
+  lastDonationDate?: Date;
+  isAvailable?: boolean;
+  hospitalName?: string;
+  licenseNumber?: string;
+  status?: string;
+  emergencyContact?: string;
 }
 
 export interface Location {

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Download, Users, Droplets, Building2, FileText, Calendar } from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
 import { useDataStore } from '../../store/dataStore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -11,7 +10,6 @@ import { Select } from '../../components/ui/Select';
 import type { Donor, Hospital } from '../../types';
 
 export function AdminReports() {
-  const { registeredUsers } = useAuthStore();
   const { requests, donations, donors, hospitals, campaigns } = useDataStore();
   
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -19,34 +17,19 @@ export function AdminReports() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(false);
 
-  // Get all donors and hospitals from both stores
-  const registeredDonors = Object.values(registeredUsers)
-    .filter((u: any) => u.role === 'donor') as Donor[];
-  const allDonors = [...donors, ...registeredDonors];
-  const uniqueDonors = allDonors.filter((d, index, self) => 
-    index === self.findIndex((t) => t.id === d.id)
-  );
-
-  const registeredHospitals = Object.values(registeredUsers)
-    .filter((u: any) => u.role === 'hospital') as Hospital[];
-  const allHospitals = [...hospitals, ...registeredHospitals];
-  const uniqueHospitals = allHospitals.filter((h, index, self) => 
-    index === self.findIndex((t) => t.id === h.id)
-  );
-
   // Filter out cancelled items for reporting
   const activeRequests = requests.filter(r => r.status !== 'cancelled');
   const activeCampaigns = campaigns.filter(c => c.status !== 'cancelled');
 
   const completedDonations = donations.filter((d) => d.status === 'completed');
   const totalUnits = completedDonations.reduce((sum, d) => sum + d.units, 0);
-  const totalPoints = uniqueDonors.reduce((sum, d) => sum + (d.points || 0), 0);
+  const totalPoints = donors.reduce((sum, d) => sum + (d.points || 0), 0);
   const fulfilledRequests = activeRequests.filter((r) => r.status === 'fulfilled');
-  const activeHospitals = uniqueHospitals.filter((h) => h.status === 'active');
+  const activeHospitals = hospitals.filter((h) => h.status === 'active');
 
   const bloodGroupStats = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => ({
     bloodGroup: bg,
-    donors: uniqueDonors.filter((d) => d.bloodGroup === bg).length,
+    donors: donors.filter((d: Donor) => d.bloodGroup === bg).length,
     donations: completedDonations.filter((d) => d.bloodGroup === bg).length,
     requests: activeRequests.filter((r) => r.bloodGroup === bg).length,
   }));
@@ -81,9 +64,9 @@ export function AdminReports() {
         months: months
       },
       summary: {
-        totalDonors: uniqueDonors.length,
-        activeDonors: uniqueDonors.filter(d => d.isAvailable).length,
-        totalHospitals: uniqueHospitals.length,
+        totalDonors: donors.length,
+        activeDonors: donors.filter((d: Donor) => d.isAvailable).length,
+        totalHospitals: hospitals.length,
         activeHospitals: activeHospitals.length,
         totalRequests: filteredRequests.length,
         pendingRequests: filteredRequests.filter(r => r.status === 'pending').length,
@@ -96,10 +79,10 @@ export function AdminReports() {
         upcomingCampaigns: filteredCampaigns.filter(c => c.status === 'upcoming').length,
       },
       bloodGroupBreakdown: bloodGroupStats,
-      topDonors: uniqueDonors
-        .sort((a, b) => (b.points || 0) - (a.points || 0))
+      topDonors: donors
+        .sort((a: Donor, b: Donor) => (b.points || 0) - (a.points || 0))
         .slice(0, 10)
-        .map(d => ({
+        .map((d: Donor) => ({
           name: d.name,
           email: d.email,
           bloodGroup: d.bloodGroup,
@@ -107,10 +90,10 @@ export function AdminReports() {
           points: d.points || 0,
           level: d.level || 1
         })),
-      topHospitals: uniqueHospitals
-        .filter(h => h.status === 'active')
+      topHospitals: hospitals
+        .filter((h: Hospital) => h.status === 'active')
         .slice(0, 10)
-        .map(h => ({
+        .map((h: Hospital) => ({
           name: h.hospitalName,
           city: h.location.city,
           state: h.location.state,
@@ -206,7 +189,7 @@ Normal: ${reportData.requestsByPriority.normal}
 
 Rank | Name                      | Blood | Donations | Points | Level
 -----|---------------------------|-------|-----------|--------|------
-${reportData.topDonors.map((d, i) => 
+${reportData.topDonors.map((d: any, i: number) => 
   `${String(i + 1).padEnd(4)} | ${d.name.substring(0, 25).padEnd(25)} | ${d.bloodGroup.padEnd(5)} | ${String(d.donations).padEnd(9)} | ${String(d.points).padEnd(6)} | ${d.level}`
 ).join('\n') || 'No donors registered yet'}
 
@@ -214,7 +197,7 @@ ${reportData.topDonors.map((d, i) =>
                             ACTIVE HOSPITALS
 ================================================================================
 
-${reportData.topHospitals.map((h, i) => 
+${reportData.topHospitals.map((h: any, i: number) => 
   `${i + 1}. ${h.name}
    Location: ${h.city}, ${h.state}
    Status: ${h.status}
@@ -267,7 +250,7 @@ For any queries, contact: support@hemalink.com
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { icon: <Droplets className="w-6 h-6" />, value: totalUnits, label: 'Units Collected', color: 'bg-rose-100 text-rose-600' },
-          { icon: <Users className="w-6 h-6" />, value: uniqueDonors.length, label: 'Total Donors', color: 'bg-blue-100 text-blue-600' },
+          { icon: <Users className="w-6 h-6" />, value: donors.length, label: 'Total Donors', color: 'bg-blue-100 text-blue-600' },
           { icon: <Building2 className="w-6 h-6" />, value: activeHospitals.length, label: 'Active Hospitals', color: 'bg-emerald-100 text-emerald-600' },
           { icon: <TrendingUp className="w-6 h-6" />, value: `${Math.round((fulfilledRequests.length / (activeRequests.length || 1)) * 100) || 0}%`, label: 'Fulfillment Rate', color: 'bg-purple-100 text-purple-600' },
         ].map((stat, index) => (

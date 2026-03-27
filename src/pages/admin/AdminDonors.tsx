@@ -1,35 +1,24 @@
 import { motion } from 'framer-motion';
 import { Users, Search, Award, Heart, MapPin } from 'lucide-react';
 import { useState } from 'react';
-import { useAuthStore } from '../../store/authStore';
 import { useDataStore } from '../../store/dataStore';
-import type { Donor } from '../../types';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
 
 export function AdminDonors() {
-  const { registeredUsers } = useAuthStore();
   const { donors } = useDataStore();
   const [search, setSearch] = useState('');
 
-  // Get donors from both data store and registered users
-  const registeredDonors = Object.values(registeredUsers)
-    .filter((u: any) => u.role === 'donor') as Donor[];
-  const allDonors = [...donors, ...registeredDonors];
-  const uniqueDonors = allDonors.filter((d, index, self) => 
-    index === self.findIndex((t) => t.id === d.id)
-  );
-
-  const filteredDonors = uniqueDonors.filter(
+  const filteredDonors = donors.filter(
     (d) =>
       d.name.toLowerCase().includes(search.toLowerCase()) ||
       d.email.toLowerCase().includes(search.toLowerCase()) ||
-      d.bloodGroup.toLowerCase().includes(search.toLowerCase())
+      (d.bloodGroup && d.bloodGroup.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const getLevelName = (level: number) => {
+  const getLevelName = (level: number = 1) => {
     const levels = ['Newcomer', 'Helper', 'Supporter', 'Champion', 'Hero', 'Legend'];
     return levels[level - 1] || 'Newcomer';
   };
@@ -55,27 +44,27 @@ export function AdminDonors() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="text-center">
           <Users className="w-8 h-8 text-rose-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-slate-800">{uniqueDonors.length}</div>
+          <div className="text-2xl font-bold text-slate-800">{donors.length}</div>
           <div className="text-sm text-slate-500">Total Donors</div>
         </Card>
         <Card className="text-center">
           <Heart className="w-8 h-8 text-rose-600 mx-auto mb-2" />
           <div className="text-2xl font-bold text-slate-800">
-            {uniqueDonors.reduce((sum, d) => sum + d.totalDonations, 0)}
+            {donors.reduce((sum, d) => sum + (d.totalDonations || 0), 0)}
           </div>
           <div className="text-sm text-slate-500">Total Donations</div>
         </Card>
         <Card className="text-center">
           <Award className="w-8 h-8 text-amber-600 mx-auto mb-2" />
           <div className="text-2xl font-bold text-slate-800">
-            {uniqueDonors.reduce((sum, d) => sum + d.points, 0)}
+            {donors.reduce((sum, d) => sum + (d.points || 0), 0)}
           </div>
           <div className="text-sm text-slate-500">Points Distributed</div>
         </Card>
         <Card className="text-center">
           <Users className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
           <div className="text-2xl font-bold text-slate-800">
-            {uniqueDonors.filter((d) => d.isAvailable).length}
+            {donors.filter((d) => d.isAvailable).length}
           </div>
           <div className="text-sm text-slate-500">Available Now</div>
         </Card>
