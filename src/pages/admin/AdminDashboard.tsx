@@ -4,11 +4,29 @@ import { useDataStore } from '../../store/dataStore';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { useNavigate } from 'react-router-dom';
 
 export function AdminDashboard() {
-  const { requests, donations, hospitals, donors, campaigns } = useDataStore();
+  const { requests, donations, hospitals, donors, campaigns, isLoading } = useDataStore();
   const navigate = useNavigate();
+
+  if (isLoading && donors.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Skeleton height={120} className="w-full" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} height={120} />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6">
+          <Skeleton height={300} />
+          <Skeleton height={300} />
+        </div>
+      </div>
+    );
+  }
 
   // Get hospitals and donors from stores
   const uniqueHospitals = hospitals;

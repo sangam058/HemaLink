@@ -5,25 +5,25 @@ import { useDataStore } from '../../store/dataStore';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { useNavigate } from 'react-router-dom';
 import type { Hospital } from '../../types';
 
 export function HospitalDashboard() {
-  const { user } = useAuthStore();
-  const { requests, donations, inventory, campaigns } = useDataStore();
+  const { user, isLoading: authLoading } = useAuthStore();
+  const { requests, donations, inventory, campaigns, isLoading: dataLoading } = useDataStore();
   const navigate = useNavigate();
   const hospital = user as Hospital;
+
+  const isLoading = authLoading || (dataLoading && inventory.length === 0);
 
   const hospitalRequests = requests.filter((r) => r.hospitalId === user?.id && r.status !== 'cancelled');
   const hospitalDonations = donations.filter((d) => d.hospitalId === user?.id && d.status !== 'cancelled');
   const hospitalInventory = inventory.filter((i) => i.hospitalId === user?.id);
-  // Filter out cancelled campaigns
   const hospitalCampaigns = campaigns.filter((c) => c.hospitalId === user?.id && c.status !== 'cancelled');
 
   const pendingRequests = hospitalRequests.filter((r) => r.status === 'pending' || r.status === 'donor_assigned');
   const pendingDonations = hospitalDonations.filter((d) => d.status === 'scheduled' || d.status === 'awaiting_confirmation');
-  // Completed donations count available for future use
-  // const completedDonations = hospitalDonations.filter((d) => d.status === 'completed');
   const totalUnits = hospitalInventory.reduce((sum, i) => sum + i.units, 0);
   const lowStockItems = hospitalInventory.filter((i) => i.units < 10);
 
@@ -33,6 +33,23 @@ export function HospitalDashboard() {
     { icon: <Package className="w-6 h-6" />, value: totalUnits, label: 'Units in Stock', color: 'emerald' },
     { icon: <Calendar className="w-6 h-6" />, value: hospitalCampaigns.length, label: 'Campaigns', color: 'purple' },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton height={120} className="w-full" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} height={120} />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6">
+          <Skeleton height={300} />
+          <Skeleton height={300} />
+        </div>
+      </div>
+    );
+  }
 
   if (hospital?.status === 'pending_approval') {
     return (

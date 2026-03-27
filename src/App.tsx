@@ -1,49 +1,52 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense, lazy } from 'react';
 import { useAuthStore } from './store/authStore';
 import { useDataStore } from './store/dataStore';
 import { isSupabaseConfigured } from './lib/supabase';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Layouts
 import { PublicLayout } from './components/layout/PublicLayout';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 
-// Public Pages
+// Public Pages (Keep Home/Auth eager for speed)
 import { HomePage } from './pages/public/HomePage';
-import { AboutPage } from './pages/public/AboutPage';
-import { CampaignsPage } from './pages/public/CampaignsPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { SignupPage } from './pages/auth/SignupPage';
-import { LiveInventoryPage } from './pages/shared/LiveInventoryPage';
+
+// Lazy Loaded Pages
+const AboutPage = lazy(() => import('./pages/public/AboutPage').then(m => ({ default: m.AboutPage })));
+const CampaignsPage = lazy(() => import('./pages/public/CampaignsPage').then(m => ({ default: m.CampaignsPage })));
+const LiveInventoryPage = lazy(() => import('./pages/shared/LiveInventoryPage').then(m => ({ default: m.LiveInventoryPage })));
 
 // Donor Pages
-import { DonorDashboard } from './pages/donor/DonorDashboard';
-import { DonorRequests } from './pages/donor/DonorRequests';
-import { DonorDonations } from './pages/donor/DonorDonations';
-import { DonorRewards } from './pages/donor/DonorRewards';
-import { DonateBlood } from './pages/donor/DonateBlood';
-import { DonorCampaigns } from './pages/donor/DonorCampaigns';
+const DonorDashboard = lazy(() => import('./pages/donor/DonorDashboard').then(m => ({ default: m.DonorDashboard })));
+const DonorRequests = lazy(() => import('./pages/donor/DonorRequests').then(m => ({ default: m.DonorRequests })));
+const DonorDonations = lazy(() => import('./pages/donor/DonorDonations').then(m => ({ default: m.DonorDonations })));
+const DonorRewards = lazy(() => import('./pages/donor/DonorRewards').then(m => ({ default: m.DonorRewards })));
+const DonateBlood = lazy(() => import('./pages/donor/DonateBlood').then(m => ({ default: m.DonateBlood })));
+const DonorCampaigns = lazy(() => import('./pages/donor/DonorCampaigns').then(m => ({ default: m.DonorCampaigns })));
 
 // Requester Pages
-import { RequesterDashboard } from './pages/requester/RequesterDashboard';
-import { NewRequest } from './pages/requester/NewRequest';
-import { MyRequests } from './pages/requester/MyRequests';
+const RequesterDashboard = lazy(() => import('./pages/requester/RequesterDashboard').then(m => ({ default: m.RequesterDashboard })));
+const NewRequest = lazy(() => import('./pages/requester/NewRequest').then(m => ({ default: m.NewRequest })));
+const MyRequests = lazy(() => import('./pages/requester/MyRequests').then(m => ({ default: m.MyRequests })));
 
 // Hospital Pages
-import { HospitalDashboard } from './pages/hospital/HospitalDashboard';
-import HospitalRequests from './pages/hospital/HospitalRequests';
-import { HospitalInventory } from './pages/hospital/HospitalInventory';
-import { HospitalDonations } from './pages/hospital/HospitalDonations';
-import { HospitalCampaigns } from './pages/hospital/HospitalCampaigns';
+const HospitalDashboard = lazy(() => import('./pages/hospital/HospitalDashboard').then(m => ({ default: m.HospitalDashboard })));
+const HospitalRequests = lazy(() => import('./pages/hospital/HospitalRequests'));
+const HospitalInventory = lazy(() => import('./pages/hospital/HospitalInventory').then(m => ({ default: m.HospitalInventory })));
+const HospitalDonations = lazy(() => import('./pages/hospital/HospitalDonations').then(m => ({ default: m.HospitalDonations })));
+const HospitalCampaigns = lazy(() => import('./pages/hospital/HospitalCampaigns').then(m => ({ default: m.HospitalCampaigns })));
 
 // Admin Pages
-import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { AdminRequests } from './pages/admin/AdminRequests';
-import { AdminDonors } from './pages/admin/AdminDonors';
-import { AdminHospitals } from './pages/admin/AdminHospitals';
-import { AdminCampaigns } from './pages/admin/AdminCampaigns';
-import { AdminReports } from './pages/admin/AdminReports';
-import { AdminRewards } from './pages/admin/AdminRewards';
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const AdminRequests = lazy(() => import('./pages/admin/AdminRequests').then(m => ({ default: m.AdminRequests })));
+const AdminDonors = lazy(() => import('./pages/admin/AdminDonors').then(m => ({ default: m.AdminDonors })));
+const AdminHospitals = lazy(() => import('./pages/admin/AdminHospitals').then(m => ({ default: m.AdminHospitals })));
+const AdminCampaigns = lazy(() => import('./pages/admin/AdminCampaigns').then(m => ({ default: m.AdminCampaigns })));
+const AdminReports = lazy(() => import('./pages/admin/AdminReports').then(m => ({ default: m.AdminReports })));
+const AdminRewards = lazy(() => import('./pages/admin/AdminRewards').then(m => ({ default: m.AdminRewards })));
 
 // Configuration Error Component
 function ConfigurationError() {
@@ -134,60 +137,64 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<PublicLayout />}>
-          <Route index element={<HomePage />} />
-          <Route path="about" element={<AboutPage />} />
-          <Route path="campaigns" element={<CampaignsPage />} />
-          <Route path="login" element={<LoginPage />} />
-          <Route path="signup" element={<SignupPage />} />
-        </Route>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Suspense fallback={<AppLoading />}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<PublicLayout />}>
+              <Route index element={<HomePage />} />
+              <Route path="about" element={<AboutPage />} />
+              <Route path="campaigns" element={<CampaignsPage />} />
+              <Route path="login" element={<LoginPage />} />
+              <Route path="signup" element={<SignupPage />} />
+            </Route>
 
-        {/* Donor Routes */}
-        <Route path="/donor" element={<DashboardLayout allowedRole="donor" />}>
-          <Route index element={<DonorDashboard />} />
-          <Route path="requests" element={<DonorRequests />} />
-          <Route path="donations" element={<DonorDonations />} />
-          <Route path="rewards" element={<DonorRewards />} />
-          <Route path="donate" element={<DonateBlood />} />
-          <Route path="inventory" element={<LiveInventoryPage />} />
-          <Route path="campaigns" element={<DonorCampaigns />} />
-        </Route>
+            {/* Donor Routes */}
+            <Route path="/donor" element={<DashboardLayout allowedRole="donor" />}>
+              <Route index element={<DonorDashboard />} />
+              <Route path="requests" element={<DonorRequests />} />
+              <Route path="donations" element={<DonorDonations />} />
+              <Route path="rewards" element={<DonorRewards />} />
+              <Route path="donate" element={<DonateBlood />} />
+              <Route path="inventory" element={<LiveInventoryPage />} />
+              <Route path="campaigns" element={<DonorCampaigns />} />
+            </Route>
 
-        {/* Requester Routes */}
-        <Route path="/requester" element={<DashboardLayout allowedRole="requester" />}>
-          <Route index element={<RequesterDashboard />} />
-          <Route path="inventory" element={<LiveInventoryPage />} />
-          <Route path="new-request" element={<NewRequest />} />
-          <Route path="my-requests" element={<MyRequests />} />
-        </Route>
+            {/* Requester Routes */}
+            <Route path="/requester" element={<DashboardLayout allowedRole="requester" />}>
+              <Route index element={<RequesterDashboard />} />
+              <Route path="inventory" element={<LiveInventoryPage />} />
+              <Route path="new-request" element={<NewRequest />} />
+              <Route path="my-requests" element={<MyRequests />} />
+            </Route>
 
-        {/* Hospital Routes */}
-        <Route path="/hospital" element={<DashboardLayout allowedRole="hospital" />}>
-          <Route index element={<HospitalDashboard />} />
-          <Route path="requests" element={<HospitalRequests />} />
-          <Route path="donations" element={<HospitalDonations />} />
-          <Route path="inventory" element={<HospitalInventory />} />
-          <Route path="campaigns" element={<HospitalCampaigns />} />
-        </Route>
+            {/* Hospital Routes */}
+            <Route path="/hospital" element={<DashboardLayout allowedRole="hospital" />}>
+              <Route index element={<HospitalDashboard />} />
+              <Route path="requests" element={<HospitalRequests />} />
+              <Route path="donations" element={<HospitalDonations />} />
+              <Route path="inventory" element={<HospitalInventory />} />
+              <Route path="campaigns" element={<HospitalCampaigns />} />
+            </Route>
 
-        {/* Admin Routes */}
-        <Route path="/admin" element={<DashboardLayout allowedRole="admin" />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="requests" element={<AdminRequests />} />
-          <Route path="donors" element={<AdminDonors />} />
-          <Route path="hospitals" element={<AdminHospitals />} />
-          <Route path="campaigns" element={<AdminCampaigns />} />
-          <Route path="reports" element={<AdminReports />} />
-          <Route path="rewards" element={<AdminRewards />} />
-        </Route>
+            {/* Admin Routes */}
+            <Route path="/admin" element={<DashboardLayout allowedRole="admin" />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="requests" element={<AdminRequests />} />
+              <Route path="donors" element={<AdminDonors />} />
+              <Route path="hospitals" element={<AdminHospitals />} />
+              <Route path="campaigns" element={<AdminCampaigns />} />
+              <Route path="reports" element={<AdminReports />} />
+              <Route path="rewards" element={<AdminRewards />} />
+            </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

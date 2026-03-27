@@ -5,23 +5,24 @@ import { useDataStore } from '../../store/dataStore';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { useNavigate } from 'react-router-dom';
 import type { Donor } from '../../types';
 
 export function DonorDashboard() {
-  const { user } = useAuthStore();
-  const { requests, donations, campaigns } = useDataStore();
+  const { user, isLoading: authLoading } = useAuthStore();
+  const { requests, donations, campaigns, isLoading: dataLoading } = useDataStore();
   const navigate = useNavigate();
   const donor = user as Donor;
+
+  const isLoading = authLoading || dataLoading;
 
   const myDonations = donations.filter((d) => d.donorId === user?.id);
   const completedDonations = myDonations.filter((d) => d.status === 'completed');
   const scheduledDonations = myDonations.filter((d) => d.status === 'scheduled');
   
-  // Get all pending requests (show all blood types) - exclude cancelled
   const pendingRequests = requests.filter((r) => r.status === 'pending');
   const matchingRequests = pendingRequests.filter((r) => r.bloodGroup === donor?.bloodGroup);
-  // Only show upcoming and ongoing campaigns, not cancelled
   const upcomingCampaigns = campaigns.filter((c) => c.status === 'upcoming' || c.status === 'ongoing');
 
   const stats = [
@@ -46,6 +47,24 @@ export function DonorDashboard() {
   const levelInfo = getLevelInfo(donor?.level || 1);
   const nextLevel = getLevelInfo((donor?.level || 1) + 1);
   const progress = ((donor?.points || 0) / nextLevel.min) * 100;
+
+  if (isLoading && !donor) {
+    return (
+      <div className="space-y-6">
+        <Skeleton height={160} className="w-full" />
+        <Skeleton height={80} className="w-full" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} height={120} />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6">
+          <Skeleton height={300} />
+          <Skeleton height={300} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

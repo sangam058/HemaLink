@@ -29,7 +29,8 @@ export function SignupPage() {
     licenseNumber: '',
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { signup, error, clearError } = useAuthStore();
+  const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+  const { signup, error: authError, clearError } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,12 +58,46 @@ export function SignupPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const validateStep = (currentStep: number) => {
+    const newErrors: Record<string, string> = {};
+    if (currentStep === 2) {
+      if (!formData.email) newErrors.email = 'Email is required';
+      else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
+      
+      if (!formData.phone) newErrors.phone = 'Phone is required';
+      
+      if (role === 'hospital') {
+        if (!formData.hospitalName) newErrors.hospitalName = 'Hospital name is required';
+        if (!formData.licenseNumber) newErrors.licenseNumber = 'License number is required';
+      } else {
+        if (!formData.name) newErrors.name = 'Full name is required';
+      }
+
+      if (!formData.password) newErrors.password = 'Password is required';
+      else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+      
+      if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
+    } else if (currentStep === 3) {
+      if (!formData.address) newErrors.address = 'Address is required';
+      if (!formData.city) newErrors.city = 'City is required';
+      if (!formData.state) newErrors.state = 'State is required';
+    }
+
+    setLocalErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNextStep = () => {
+    if (validateStep(step)) {
+      setStep(step + 1);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (formData.password !== formData.confirmPassword) {
-      return;
-    }
+    if (!validateStep(3)) return;
 
     setIsLoading(true);
 
@@ -179,6 +214,7 @@ export function SignupPage() {
                       onChange={handleChange}
                       placeholder="Enter hospital name"
                       icon={<Building2 className="w-5 h-5" />}
+                      error={localErrors.hospitalName}
                       required
                     />
                     <Input
@@ -187,6 +223,7 @@ export function SignupPage() {
                       value={formData.licenseNumber}
                       onChange={handleChange}
                       placeholder="Enter license number"
+                      error={localErrors.licenseNumber}
                       required
                     />
                   </>
@@ -199,6 +236,8 @@ export function SignupPage() {
                       onChange={handleChange}
                       placeholder="Enter your full name"
                       icon={<User className="w-5 h-5" />}
+                      error={localErrors.name}
+                      autoFocus
                       required
                     />
                     <Select
@@ -219,6 +258,7 @@ export function SignupPage() {
                   onChange={handleChange}
                   placeholder="Enter your email"
                   icon={<Mail className="w-5 h-5" />}
+                  error={localErrors.email}
                   required
                 />
                 <Input
@@ -228,6 +268,7 @@ export function SignupPage() {
                   onChange={handleChange}
                   placeholder="Enter your phone number"
                   icon={<Phone className="w-5 h-5" />}
+                  error={localErrors.phone}
                   required
                 />
                 <Input
@@ -238,6 +279,7 @@ export function SignupPage() {
                   onChange={handleChange}
                   placeholder="Create a password"
                   icon={<Lock className="w-5 h-5" />}
+                  error={localErrors.password}
                   rightIcon={
                     <button
                       type="button"
@@ -261,6 +303,7 @@ export function SignupPage() {
                   onChange={handleChange}
                   placeholder="Confirm your password"
                   icon={<Lock className="w-5 h-5" />}
+                  error={localErrors.confirmPassword}
                   rightIcon={
                     <button
                       type="button"
@@ -277,21 +320,21 @@ export function SignupPage() {
                   required
                 />
 
-                {error && (
+                {authError && (
                   <div className={`p-3 text-sm rounded-lg ${
-                    error.toLowerCase().includes('successful') 
+                    authError.toLowerCase().includes('successful') 
                     ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
                     : 'bg-red-50 text-red-600 border border-red-100'
                   }`}>
-                    {error}
+                    {authError}
                   </div>
                 )}
 
-                <div className="flex gap-3">
+                <div className="flex gap-3 pt-2">
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(1)}>
                     Back
                   </Button>
-                  <Button type="button" className="flex-1" onClick={() => setStep(3)}>
+                  <Button type="button" className="flex-1" onClick={handleNextStep}>
                     Continue
                   </Button>
                 </div>
@@ -314,6 +357,8 @@ export function SignupPage() {
                   onChange={handleChange}
                   placeholder="Enter your address"
                   icon={<MapPin className="w-5 h-5" />}
+                  error={localErrors.address}
+                  autoFocus
                   required
                 />
                 <div className="grid grid-cols-2 gap-4">
@@ -323,6 +368,7 @@ export function SignupPage() {
                     value={formData.city}
                     onChange={handleChange}
                     placeholder="City"
+                    error={localErrors.city}
                     required
                   />
                   <Input
@@ -331,6 +377,7 @@ export function SignupPage() {
                     value={formData.state}
                     onChange={handleChange}
                     placeholder="State"
+                    error={localErrors.state}
                     required
                   />
                 </div>
@@ -343,17 +390,17 @@ export function SignupPage() {
                   required
                 />
 
-                {error && (
+                {authError && (
                   <div className={`p-3 text-sm rounded-lg ${
-                    error.toLowerCase().includes('successful') 
+                    authError.toLowerCase().includes('successful') 
                     ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
                     : 'bg-red-50 text-red-600 border border-red-100'
                   }`}>
-                    {error}
+                    {authError}
                   </div>
                 )}
 
-                <div className="flex gap-3">
+                <div className="flex gap-3 pt-2">
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(2)}>
                     Back
                   </Button>
