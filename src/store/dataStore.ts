@@ -49,6 +49,7 @@ interface DataState {
   // Hospital & Donor actions
   approveHospital: (id: string) => Promise<void>;
   rejectHospital: (id: string) => Promise<void>;
+  suspendHospital: (id: string) => Promise<void>;
   addHospital: (hospital: Hospital) => Promise<void>;
   addDonor: (donor: Donor) => Promise<void>;
 }
@@ -467,6 +468,18 @@ export const useDataStore = create<DataState>()(
         set((state) => ({
           hospitals: state.hospitals.map((h) =>
             h.id === id ? { ...h, status: 'rejected' } : h
+          ),
+        }));
+      },
+
+      suspendHospital: async (id) => {
+        if (!supabase) return;
+        const { error } = await supabase.from('hospitals').update({ status: 'suspended' }).eq('id', id);
+        if (error) throw error;
+
+        set((state) => ({
+          hospitals: state.hospitals.map((h) =>
+            h.id === id ? { ...h, status: 'suspended' } : h
           ),
         }));
       },

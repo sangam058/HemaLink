@@ -10,7 +10,7 @@ import { Modal } from '../../components/ui/Modal';
 import type { Hospital } from '../../types';
 
 export function AdminHospitals() {
-  const { hospitals, approveHospital, rejectHospital, addNotification } = useDataStore();
+  const { hospitals, approveHospital, rejectHospital, suspendHospital, addNotification } = useDataStore();
 
   const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
@@ -44,28 +44,26 @@ export function AdminHospitals() {
     });
   };
 
-  const handleRemoveOrSuspend = () => {
+  const handleRemoveOrSuspend = async () => {
     if (!selectedHospital || !removeReason.trim()) return;
 
-    if (actionType === 'remove') {
-      rejectHospital(selectedHospital.id);
-    } else {
-      // For suspend, we update status
-      const { hospitals: currentHospitals } = useDataStore.getState();
-      useDataStore.setState({
-        hospitals: currentHospitals.map(h => 
-          h.id === selectedHospital.id ? { ...h, status: 'suspended' as any } : h
-        )
-      });
-    }
+    try {
+      if (actionType === 'remove') {
+        await rejectHospital(selectedHospital.id);
+      } else {
+        await suspendHospital(selectedHospital.id);
+      }
 
-    // Notify hospital
-    addNotification({
-      userId: selectedHospital.id,
-      title: actionType === 'remove' ? 'Account Removed' : 'Account Suspended',
-      message: `Your hospital account has been ${actionType === 'remove' ? 'removed' : 'suspended'}. Reason: ${removeReason}`,
-      type: 'system',
-    });
+      // Notify hospital
+      addNotification({
+        userId: selectedHospital.id,
+        title: actionType === 'remove' ? 'Account Removed' : 'Account Suspended',
+        message: `Your hospital account has been ${actionType === 'remove' ? 'removed' : 'suspended'}. Reason: ${removeReason}`,
+        type: 'system',
+      });
+    } catch (error) {
+      console.error(`Failed to ${actionType} hospital:`, error);
+    }
 
     setIsRemoveModalOpen(false);
     setSelectedHospital(null);
